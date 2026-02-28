@@ -1,0 +1,18 @@
+{
+  "name": "reolink-unifi-bridge-dashboard",
+  "version": "1.0.0",
+  "description": "Status dashboard for Reolink UniFi Bridge HA Add-on",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "4.18.2",
+    "mqtt": "5.3.4",
+    "net": "1.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}

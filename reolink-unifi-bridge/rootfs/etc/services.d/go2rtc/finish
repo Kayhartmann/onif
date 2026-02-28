@@ -1,0 +1,18 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Service finish: go2rtc
+# Called when go2rtc exits. s6 will restart automatically.
+# ==============================================================================
+
+EXIT_CODE="${1}"
+SIGNAL="${2}"
+
+bashio::log.warning "go2rtc exited with code ${EXIT_CODE} (signal: ${SIGNAL})"
+
+if [ "${EXIT_CODE}" -eq 256 ]; then
+    bashio::log.info "go2rtc stopped intentionally."
+    exit 0
+fi
+
+bashio::log.info "go2rtc will be restarted by s6-supervise..."
+exit 0

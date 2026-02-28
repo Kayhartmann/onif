@@ -1,0 +1,28 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Service: neolink (Reolink Baichuan → RTSP bridge)
+# ==============================================================================
+
+bashio::log.info "Waiting for MQTT broker to be ready..."
+wait-for-port 127.0.0.1 1883 30 || {
+    bashio::log.warning "MQTT broker not ready after 30s, starting Neolink anyway..."
+}
+
+CONFIG_FILE="/data/neolink/neolink.toml"
+LOG_LEVEL=$(bashio::config 'log_level')
+
+# Map HA log level to Neolink log level
+case "${LOG_LEVEL}" in
+    "error") NEOLINK_LOG="error" ;;
+    "warn")  NEOLINK_LOG="warn" ;;
+    "info")  NEOLINK_LOG="info" ;;
+    "debug") NEOLINK_LOG="debug" ;;
+    *)       NEOLINK_LOG="info" ;;
+esac
+
+bashio::log.info "Starting Neolink (log level: ${NEOLINK_LOG})..."
+
+export RUST_LOG="${NEOLINK_LOG}"
+
+exec neolink rtsp \
+    --config "${CONFIG_FILE}"

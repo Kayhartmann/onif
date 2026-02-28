@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reolink → UniFi Bridge</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="header-inner">
+            <h1>
+                <span class="icon">&#x1F4F9;</span>
+                Reolink → UniFi Bridge
+            </h1>
+            <div class="header-meta">
+                <span id="last-update" class="last-update">Updating...</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <!-- Services Status Bar -->
+        <section class="services-bar">
+            <div class="service-chip" id="svc-mosquitto">
+                <span class="svc-dot"></span>
+                <span class="svc-label">Mosquitto</span>
+            </div>
+            <div class="service-chip" id="svc-neolink">
+                <span class="svc-dot"></span>
+                <span class="svc-label">Neolink</span>
+            </div>
+            <div class="service-chip" id="svc-go2rtc">
+                <span class="svc-dot"></span>
+                <span class="svc-label">go2rtc</span>
+            </div>
+            <div class="service-chip" id="svc-onvif">
+                <span class="svc-dot"></span>
+                <span class="svc-label">ONVIF</span>
+            </div>
+        </section>
+
+        <!-- Camera Cards Grid -->
+        <section class="section">
+            <h2 class="section-title">Cameras</h2>
+            <div id="cameras-grid" class="cameras-grid">
+                <div class="loading-placeholder">Loading cameras...</div>
+            </div>
+        </section>
+
+        <!-- Two column layout: Motion Log + Streams -->
+        <div class="two-col">
+            <!-- Motion Events Log -->
+            <section class="section">
+                <h2 class="section-title">Motion Events <span id="motion-count" class="badge">0</span></h2>
+                <div id="motion-log" class="motion-log">
+                    <div class="empty-state">No motion events yet.</div>
+                </div>
+            </section>
+
+            <!-- RTSP Stream URLs -->
+            <section class="section">
+                <h2 class="section-title">RTSP Stream URLs</h2>
+                <div id="streams-list" class="streams-list">
+                    <div class="loading-placeholder">Loading streams...</div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Service: mosquitto (Internal MQTT Broker)
+# ==============================================================================
+
+bashio::log.info "Starting Mosquitto MQTT broker..."
+
+exec /usr/sbin/mosquitto \
+    -c /etc/mosquitto/mosquitto.conf

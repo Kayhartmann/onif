@@ -1,0 +1,52 @@
+name: "Reolink → UniFi Protect Bridge"
+description: "Verbindet Reolink Kameras (Baichuan) mit UniFi Protect über ONVIF. Enthält Neolink, go2rtc und ONVIF-Server in einem Add-on."
+version: "1.0.0"
+slug: "reolink_unifi_bridge"
+init: false
+arch:
+  - amd64
+  - aarch64
+  - armhf
+  - armv7
+privileged: true
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:cctv
+panel_title: "Reolink Bridge"
+map:
+  - config:rw
+options:
+  host_interface: "eth0"
+  neolink_port: 8554
+  go2rtc_port: 18554
+  log_level: "info"
+  cameras: []
+schema:
+  host_interface: str
+  neolink_port: int
+  go2rtc_port: int
+  log_level: list(error|warn|info|debug)
+  cameras:
+    - name: str
+      address: str
+      username: str
+      password: str
+      uid: str?
+      channel: int?
+      discovery: list(local|remote|map|relay)?
+      is_battery_camera: bool
+      enable_motion: bool
+      enable_battery: bool
+      enable_preview: bool
+      onvif_ip: str
+      onvif_mac: str
+      stream_high_width: int
+      stream_high_height: int
+      stream_high_fps: int
+      stream_low_width: int
+      stream_low_height: int
+      stream_low_fps: int
+
+image: "ghcr.io/kayhartmann/reolink-unifi-bridge/{arch}"
+
+homeassistant: "2023.1.0"

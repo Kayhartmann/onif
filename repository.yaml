@@ -1,0 +1,6 @@
+name: Reolink UniFi Bridge
+url: https://github.com/Kayhartmann/onif
+maintainer: Kayhartmann
+
+addons:
+  - reolink-unifi-bridge

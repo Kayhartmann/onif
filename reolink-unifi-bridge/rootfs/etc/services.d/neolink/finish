@@ -1,0 +1,20 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Service finish: neolink
+# Called when neolink exits. Restarts automatically via s6 (does not kill container).
+# ==============================================================================
+
+EXIT_CODE="${1}"
+SIGNAL="${2}"
+
+bashio::log.warning "Neolink exited with code ${EXIT_CODE} (signal: ${SIGNAL})"
+
+# Exit code 256 means s6 killed the service intentionally (stop requested)
+if [ "${EXIT_CODE}" -eq 256 ]; then
+    bashio::log.info "Neolink stopped intentionally."
+    exit 0
+fi
+
+bashio::log.info "Neolink will be restarted by s6-supervise..."
+# Return non-zero to trigger s6 restart behavior
+exit 0

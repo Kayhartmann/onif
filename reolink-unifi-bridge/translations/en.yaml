@@ -1,0 +1,101 @@
+configuration:
+  host_interface:
+    name: Host Network Interface
+    description: >
+      The network interface on the host that the cameras are connected to.
+      Used to create MacVLAN sub-interfaces for ONVIF virtual cameras.
+      Common values: eth0, ens3, enp3s0. Run `ip link show` on your host to find the correct name.
+  neolink_port:
+    name: Neolink RTSP Port
+    description: >
+      TCP port for the Neolink RTSP server (Reolink Baichuan → RTSP bridge).
+      Default: 8554. Change only if this port is already in use.
+  go2rtc_port:
+    name: go2rtc RTSP Port
+    description: >
+      TCP port for the go2rtc RTSP proxy/restreamer.
+      UniFi Protect and other clients should connect to this port, not directly to Neolink.
+      Default: 18554.
+  log_level:
+    name: Log Level
+    description: >
+      Verbosity of log output. Use "info" for normal operation, "debug" for troubleshooting.
+  cameras:
+    name: Cameras
+    description: List of Reolink cameras to bridge. Each camera requires its own entry.
+  cameras_name:
+    name: Camera Name
+    description: >
+      A unique, short name for this camera (e.g. "frontdoor", "garage").
+      Used for RTSP stream URLs and MQTT topics. Only letters, numbers and underscores.
+  cameras_address:
+    name: Camera IP Address
+    description: IP address of the Reolink camera (e.g. 192.168.1.100). Use DHCP reservations for stability.
+  cameras_username:
+    name: Username
+    description: Camera login username. Default is usually "admin".
+  cameras_password:
+    name: Password
+    description: Camera login password.
+  cameras_uid:
+    name: Camera UID (optional)
+    description: >
+      Reolink camera UID for relay/remote connections. Leave empty for local LAN connections.
+  cameras_channel:
+    name: Channel (optional)
+    description: >
+      Camera channel number for multi-channel NVRs. Leave empty (defaults to 0) for single cameras.
+  cameras_discovery:
+    name: Discovery Method (optional)
+    description: >
+      Connection method: "local" (LAN direct), "remote" (cloud relay), "map" (P2P NAT), "relay" (relay server).
+      Leave empty to let Neolink auto-detect.
+  cameras_is_battery_camera:
+    name: Battery-Powered Camera
+    description: >
+      Enable battery optimizations: stream pauses when no RTSP client is connected,
+      and resumes automatically when motion is detected. Reduces battery drain significantly.
+  cameras_enable_motion:
+    name: Enable Motion Detection (MQTT)
+    description: >
+      Publish motion events to MQTT. Enables Home Assistant motion binary sensor auto-discovery.
+      Topics: neolink/{name}/status/motion (on/off)
+  cameras_enable_battery:
+    name: Enable Battery Level (MQTT)
+    description: >
+      Publish battery level to MQTT. Enables Home Assistant battery sensor auto-discovery.
+      Topic: neolink/{name}/status/battery_level
+  cameras_enable_preview:
+    name: Enable Preview (MQTT)
+    description: >
+      Publish preview images to MQTT when motion is detected. Higher data usage.
+  cameras_onvif_ip:
+    name: ONVIF Virtual IP
+    description: >
+      The IP address that UniFi Protect will see for this camera's ONVIF interface.
+      Must be unique, on the same subnet as your host, and reserved in your DHCP server.
+      Example: 192.168.1.201
+  cameras_onvif_mac:
+    name: ONVIF Virtual MAC Address
+    description: >
+      A unique MAC address for the virtual ONVIF network interface.
+      Use a locally-administered MAC starting with 02: (e.g. 02:00:00:00:01:01).
+      Each camera must have a different MAC.
+  cameras_stream_high_width:
+    name: High Quality Width (px)
+    description: Width of the main/high-quality stream. Check your camera specs. Common: 2560, 1920, 2304.
+  cameras_stream_high_height:
+    name: High Quality Height (px)
+    description: Height of the main/high-quality stream. Common: 1440, 1080, 1296.
+  cameras_stream_high_fps:
+    name: High Quality FPS
+    description: Frames per second for the high-quality stream. Common values: 15, 20, 25, 30.
+  cameras_stream_low_width:
+    name: Low Quality Width (px)
+    description: Width of the sub/low-quality stream. Common: 640, 720, 896.
+  cameras_stream_low_height:
+    name: Low Quality Height (px)
+    description: Height of the sub/low-quality stream. Common: 360, 480, 512.
+  cameras_stream_low_fps:
+    name: Low Quality FPS
+    description: Frames per second for the low-quality stream. Common: 7, 10, 15.

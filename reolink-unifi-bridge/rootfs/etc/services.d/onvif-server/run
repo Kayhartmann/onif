@@ -1,0 +1,26 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Service: onvif-server (Virtual ONVIF cameras for UniFi Protect)
+# Uses daniela-hase/onvif-server
+# ==============================================================================
+
+GO2RTC_PORT=$(bashio::config 'go2rtc_port')
+
+bashio::log.info "Waiting for go2rtc RTSP to be ready on port ${GO2RTC_PORT}..."
+wait-for-port 127.0.0.1 "${GO2RTC_PORT}" 60 || {
+    bashio::log.warning "go2rtc not ready after 60s, starting ONVIF server anyway..."
+}
+
+CONFIG_FILE="/data/onvif-server.json"
+
+if [ ! -f "${CONFIG_FILE}" ]; then
+    bashio::log.error "ONVIF config file not found: ${CONFIG_FILE}"
+    exit 1
+fi
+
+bashio::log.info "Starting ONVIF server with config: ${CONFIG_FILE}"
+
+cd /opt/onvif-server || exit 1
+
+# daniela-hase/onvif-server accepts config via --config flag or CONFIG env var
+exec node main.js --config "${CONFIG_FILE}"
