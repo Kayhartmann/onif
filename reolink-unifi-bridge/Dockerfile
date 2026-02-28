@@ -6,7 +6,9 @@ ARG BUILD_ARCH
 ARG NEOLINK_VERSION="0.6.1"
 ARG GO2RTC_VERSION="1.9.7"
 
-# Install system dependencies (non-GStreamer)
+# Install system dependencies
+# NOTE: GStreamer is NOT needed — neolink v0.6.x uses a pure Rust RTSP implementation.
+# Installing GStreamer from Alpine edge caused "statx: symbol not found" ABI conflicts.
 RUN apk add --no-cache \
     nodejs \
     npm \
@@ -23,21 +25,6 @@ RUN apk add --no-cache \
     busybox-extras \
     gcompat \
     libgcc \
-    && rm -rf /var/cache/apk/*
-
-# Install ALL GStreamer packages from Alpine edge in one step.
-# gst-rtsp-server is only in edge/community (not in stable 3.19).
-# All packages must come from the same version to avoid "symbol not found" errors.
-RUN apk add --no-cache \
-    -X https://dl-cdn.alpinelinux.org/alpine/edge/main \
-    -X https://dl-cdn.alpinelinux.org/alpine/edge/community \
-    glib \
-    gstreamer \
-    gst-plugins-base \
-    gst-plugins-good \
-    gst-plugins-bad \
-    gst-plugins-ugly \
-    gst-rtsp-server \
     && rm -rf /var/cache/apk/*
 
 # Install Neolink (arch-specific binary)
@@ -95,13 +82,12 @@ RUN find /etc/cont-init.d -name "*.sh" -exec chmod +x {} \; \
     && chmod +x /usr/bin/wait-for-port \
     && chmod +x /usr/bin/udhcpc-onvif-script
 
-# Configure mosquitto for local-only listening
-# Override pid_file in main config to use /tmp (writable by mosquitto user)
+# Configure mosquitto for local-only listening.
+# We point mosquitto directly at this file (not the main mosquitto.conf) so there
+# is no conflict with any pid_file directive in the default config.
 RUN mkdir -p /etc/mosquitto/conf.d \
-    && printf 'listener 1883 127.0.0.1\nallow_anonymous true\n' \
+    && printf 'listener 1883 127.0.0.1\nallow_anonymous true\npid_file /tmp/mosquitto.pid\n' \
        > /etc/mosquitto/conf.d/local.conf \
-    && sed -i 's|pid_file /var/run/mosquitto.*|pid_file /tmp/mosquitto.pid|' \
-       /etc/mosquitto/mosquitto.conf 2>/dev/null || true \
     && mkdir -p /var/lib/mosquitto \
     && chown mosquitto:mosquitto /var/lib/mosquitto 2>/dev/null || true
 
@@ -116,4 +102,4 @@ LABEL \
     io.hass.description="Connects Reolink cameras to UniFi Protect via ONVIF" \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
-    io.hass.version="1.0.8"
+    io.hass.version="1.0.9"

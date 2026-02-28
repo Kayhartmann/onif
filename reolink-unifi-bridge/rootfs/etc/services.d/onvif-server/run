@@ -21,5 +21,6 @@ fi
 
 bashio::log.info "Starting ONVIF server with config: ${CONFIG_FILE}"
 
-# daniela-hase/onvif-server takes the config path as a positional argument
+# daniela-hase/onvif-server opens wsdl/ relative to its working directory
+cd /app
 exec node /app/main.js "${CONFIG_FILE}"
