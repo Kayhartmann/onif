@@ -97,7 +97,7 @@ function renderCameraCard(cam) {
             <div class="camera-meta">
                 <div class="camera-meta-row">
                     <span class="camera-meta-label">Camera IP</span>
-                    <span class="camera-meta-value">${escapeHtml(cam.address)}</span>
+                    <span class="camera-meta-value">${cam.address ? escapeHtml(cam.address) : '<span class="waiting">UID-based</span>'}</span>
                 </div>
                 <div class="camera-meta-row">
                     <span class="camera-meta-label">ONVIF IP</span>

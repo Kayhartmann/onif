@@ -96,9 +96,12 @@ RUN find /etc/cont-init.d -name "*.sh" -exec chmod +x {} \; \
     && chmod +x /usr/bin/udhcpc-onvif-script
 
 # Configure mosquitto for local-only listening
+# Override pid_file in main config to use /tmp (writable by mosquitto user)
 RUN mkdir -p /etc/mosquitto/conf.d \
     && printf 'listener 1883 127.0.0.1\nallow_anonymous true\n' \
        > /etc/mosquitto/conf.d/local.conf \
+    && sed -i 's|pid_file /var/run/mosquitto.*|pid_file /tmp/mosquitto.pid|' \
+       /etc/mosquitto/mosquitto.conf 2>/dev/null || true \
     && mkdir -p /var/lib/mosquitto \
     && chown mosquitto:mosquitto /var/lib/mosquitto 2>/dev/null || true
 
@@ -113,4 +116,4 @@ LABEL \
     io.hass.description="Connects Reolink cameras to UniFi Protect via ONVIF" \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
-    io.hass.version="1.0.5"
+    io.hass.version="1.0.6"

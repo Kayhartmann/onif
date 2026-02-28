@@ -237,7 +237,7 @@ app.get('/api/status', async (req, res) => {
             mosquitto: { running: mosquittoUp, port: MQTT_PORT },
             neolink: { running: neolinkUp, port: NEOLINK_PORT },
             go2rtc: { running: go2rtcUp, port: GO2RTC_PORT },
-            onvif: { running: onvifUp, port: 8080 },
+            onvif: { running: onvifUp, port: 8001 },
             dashboard: { running: true, port: PORT },
         },
         timestamp: new Date().toISOString(),

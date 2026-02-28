@@ -146,14 +146,6 @@ motion_timeout = 2.0
 EOF
         fi
 
-        # Stream configuration
-        cat >> "${CONFIG_FILE}" << EOF
-
-[cameras.stream.main]
-name = "mainStream"
-permitted_format = "H264"
-EOF
-
         # MQTT configuration for this camera
         if bashio::var.true "${ENABLE_MOTION}" || \
            bashio::var.true "${ENABLE_BATTERY}" || \
