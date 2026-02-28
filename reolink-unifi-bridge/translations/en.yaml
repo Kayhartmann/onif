@@ -93,13 +93,13 @@ configuration:
       Each camera must have a different MAC.
   cameras_stream_high_width:
     name: High Quality Width (px)
-    description: Width of the main/high-quality stream. Check your camera specs. Common: 2560, 1920, 2304.
+    description: "Width of the main/high-quality stream. Check your camera specs. Common: 2560, 1920, 2304."
   cameras_stream_high_height:
     name: High Quality Height (px)
-    description: Height of the main/high-quality stream. Common: 1440, 1080, 1296.
+    description: "Height of the main/high-quality stream. Common: 1440, 1080, 1296."
   cameras_stream_high_fps:
     name: High Quality FPS
-    description: Frames per second for the high-quality stream. Common values: 15, 20, 25, 30.
+    description: "Frames per second for the high-quality stream. Common values: 15, 20, 25, 30."
   cameras_stream_high_bitrate:
     name: High Quality Bitrate (kbps)
     description: >
@@ -108,13 +108,13 @@ configuration:
       Common values: 2048, 4096, 6144.
   cameras_stream_low_width:
     name: Low Quality Width (px)
-    description: Width of the sub/low-quality stream. Common: 640, 720, 896.
+    description: "Width of the sub/low-quality stream. Common: 640, 720, 896."
   cameras_stream_low_height:
     name: Low Quality Height (px)
-    description: Height of the sub/low-quality stream. Common: 360, 480, 512.
+    description: "Height of the sub/low-quality stream. Common: 360, 480, 512."
   cameras_stream_low_fps:
     name: Low Quality FPS
-    description: Frames per second for the low-quality stream. Common: 7, 10, 15.
+    description: "Frames per second for the low-quality stream. Common: 7, 10, 15."
   cameras_stream_low_bitrate:
     name: Low Quality Bitrate (kbps)
     description: >
