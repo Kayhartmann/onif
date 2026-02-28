@@ -26,7 +26,7 @@ fi
 
 # Determine host subnet prefix length once (default /24)
 PREFIX_LEN="24"
-HOST_NETWORK=$(ip route | grep "${HOST_IFACE}" | grep -oP '\d+\.\d+\.\d+\.\d+/\d+' | head -1)
+HOST_NETWORK=$(ip route | grep "${HOST_IFACE}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+' | head -1)
 if [ -n "${HOST_NETWORK}" ]; then
     PREFIX_LEN=$(echo "${HOST_NETWORK}" | cut -d'/' -f2)
 fi
@@ -75,7 +75,7 @@ for i in $(seq 0 $((CAMERA_COUNT - 1))); do
 
             # Read the IP the script assigned to the interface
             ASSIGNED_IP=$(ip addr show dev "${IFACE_NAME}" \
-                          | grep -oP 'inet \K[\d.]+' | head -1)
+                          | grep -oE 'inet [0-9.]+' | head -1 | cut -d' ' -f2)
 
             if [ -n "${ASSIGNED_IP}" ]; then
                 bashio::log.info "    DHCP lease obtained: ${ASSIGNED_IP} on ${IFACE_NAME}"
