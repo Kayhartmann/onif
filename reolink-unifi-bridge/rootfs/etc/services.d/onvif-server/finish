@@ -15,4 +15,3 @@ if [ "${EXIT_CODE}" -eq 256 ]; then
 fi
 
 bashio::log.info "ONVIF server will be restarted by s6-supervise..."
-exit 0

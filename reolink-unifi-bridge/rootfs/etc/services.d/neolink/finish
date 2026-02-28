@@ -16,5 +16,3 @@ if [ "${EXIT_CODE}" -eq 256 ]; then
 fi
 
 bashio::log.info "Neolink will be restarted by s6-supervise..."
-# Return non-zero to trigger s6 restart behavior
-exit 0

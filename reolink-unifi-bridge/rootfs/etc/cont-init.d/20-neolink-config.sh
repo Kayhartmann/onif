@@ -10,6 +10,7 @@ bashio::log.info "Generating Neolink configuration from add-on settings..."
 
 NEOLINK_PORT=$(bashio::config 'neolink_port')
 LOG_LEVEL=$(bashio::config 'log_level')
+NEOLINK_RTSP_PASSWORD=$(bashio::config 'neolink_rtsp_password')
 CONFIG_FILE="/data/neolink/neolink.toml"
 
 mkdir -p /data/neolink
@@ -44,6 +45,10 @@ cat > "${CONFIG_FILE}" << EOF
 bind = "0.0.0.0:${NEOLINK_PORT}"
 permitted_users = ["admin"]
 
+[[users]]
+name = "admin"
+password = "${NEOLINK_RTSP_PASSWORD}"
+
 EOF
 
 # Add MQTT broker section if needed
@@ -61,7 +66,6 @@ fi
 if bashio::config.exists 'cameras'; then
     for i in $(seq 0 $((CAMERA_COUNT - 1))); do
         CAM_NAME=$(bashio::config "cameras[${i}].name")
-        CAM_ADDRESS=$(bashio::config "cameras[${i}].address")
         CAM_USERNAME=$(bashio::config "cameras[${i}].username")
         CAM_PASSWORD=$(bashio::config "cameras[${i}].password")
         IS_BATTERY=$(bashio::config "cameras[${i}].is_battery_camera")
@@ -70,9 +74,13 @@ if bashio::config.exists 'cameras'; then
         ENABLE_PREVIEW=$(bashio::config "cameras[${i}].enable_preview")
 
         # Optional fields
+        CAM_ADDRESS=""
         CAM_UID=""
         CAM_CHANNEL=""
         CAM_DISCOVERY=""
+        if bashio::config.exists "cameras[${i}].address"; then
+            CAM_ADDRESS=$(bashio::config "cameras[${i}].address")
+        fi
         if bashio::config.exists "cameras[${i}].uid"; then
             CAM_UID=$(bashio::config "cameras[${i}].uid")
         fi
@@ -91,16 +99,24 @@ if bashio::config.exists 'cameras'; then
         LOW_H=$(bashio::config "cameras[${i}].stream_low_height")
         LOW_FPS=$(bashio::config "cameras[${i}].stream_low_fps")
 
-        bashio::log.info "Configuring camera: ${CAM_NAME} (${CAM_ADDRESS})"
+        if [ -n "${CAM_ADDRESS}" ]; then
+            bashio::log.info "Configuring camera: ${CAM_NAME} (${CAM_ADDRESS})"
+        else
+            bashio::log.info "Configuring camera: ${CAM_NAME} (UID-based)"
+        fi
 
         # Write camera section
         cat >> "${CONFIG_FILE}" << EOF
 [[cameras]]
 name = "${CAM_NAME}"
-address = "${CAM_ADDRESS}"
 username = "${CAM_USERNAME}"
 password = "${CAM_PASSWORD}"
 EOF
+
+        # Add address only if set (UID-only cameras don't need it)
+        if [ -n "${CAM_ADDRESS}" ]; then
+            echo "address = \"${CAM_ADDRESS}\"" >> "${CONFIG_FILE}"
+        fi
 
         # Add optional UID
         if [ -n "${CAM_UID}" ]; then

@@ -20,6 +20,12 @@ configuration:
     name: Log Level
     description: >
       Verbosity of log output. Use "info" for normal operation, "debug" for troubleshooting.
+  neolink_rtsp_password:
+    name: RTSP Stream Password
+    description: >
+      Password for accessing the Neolink RTSP streams (username is always "admin").
+      go2rtc and other RTSP clients use this to connect to Neolink.
+      Default: admin
   cameras:
     name: Cameras
     description: List of Reolink cameras to bridge. Each camera requires its own entry.

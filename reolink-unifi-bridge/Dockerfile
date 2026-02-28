@@ -26,6 +26,14 @@ RUN apk add --no-cache \
     glib \
     gstreamer \
     gst-plugins-base \
+    gst-plugins-good \
+    gst-plugins-bad \
+    gst-plugins-ugly \
+    && rm -rf /var/cache/apk/*
+
+# Install gst-rtsp-server from Alpine edge (not available in stable 3.19)
+RUN apk add --no-cache \
+    --repository https://dl-cdn.alpinelinux.org/alpine/edge/community \
     gst-rtsp-server \
     && rm -rf /var/cache/apk/*
 
@@ -38,6 +46,7 @@ RUN \
     else echo "Unsupported arch: ${BUILD_ARCH}" && exit 1; fi \
     && wget -q "https://github.com/QuantumEntangledAndy/neolink/releases/download/v${NEOLINK_VERSION}/${NEOLINK_FILE}.zip" \
        -O /tmp/neolink.zip \
+    && [ -s /tmp/neolink.zip ] \
     && unzip /tmp/neolink.zip -d /tmp/neolink_extract \
     && find /tmp/neolink_extract -name "neolink" -type f -exec cp {} /usr/local/bin/neolink \; \
     && chmod +x /usr/local/bin/neolink \
@@ -101,4 +110,4 @@ LABEL \
     io.hass.description="Connects Reolink cameras to UniFi Protect via ONVIF" \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
-    io.hass.version="1.0.3"
+    io.hass.version="1.0.4"

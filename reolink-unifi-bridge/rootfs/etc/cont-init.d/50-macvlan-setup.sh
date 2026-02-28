@@ -112,12 +112,15 @@ for i in $(seq 0 $((CAMERA_COUNT - 1))); do
     # ── Write actual IP into the shared JSON map ────────────────────────────
     if [ -n "${ASSIGNED_IP}" ]; then
         CURRENT=$(cat "${IP_MAP_FILE}")
-        python3 -c "
+        NEW_CONTENT=$(python3 -c "
 import json, sys
 data = json.loads(sys.argv[1])
 data[sys.argv[2]] = sys.argv[3]
 print(json.dumps(data))
-" "${CURRENT}" "${CAM_NAME}" "${ASSIGNED_IP}" > "${IP_MAP_FILE}"
+" "${CURRENT}" "${CAM_NAME}" "${ASSIGNED_IP}" 2>/dev/null) || true
+        if [ -n "${NEW_CONTENT}" ]; then
+            echo "${NEW_CONTENT}" > "${IP_MAP_FILE}"
+        fi
     fi
 done
 
