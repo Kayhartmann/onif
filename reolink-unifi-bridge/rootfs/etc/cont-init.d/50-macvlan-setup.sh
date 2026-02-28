@@ -40,7 +40,15 @@ fi
 for i in $(seq 0 $((CAMERA_COUNT - 1))); do
     CAM_NAME=$(bashio::config "cameras[${i}].name")
     IP_MODE=$(bashio::config "cameras[${i}].ip_mode")
-    ONVIF_MAC=$(bashio::config "cameras[${i}].onvif_mac")
+
+    # MAC: use configured value or auto-generate from camera name (deterministic, stable)
+    if bashio::config.exists "cameras[${i}].onvif_mac"; then
+        ONVIF_MAC=$(bashio::config "cameras[${i}].onvif_mac")
+    else
+        HASH=$(printf '%s' "${CAM_NAME}" | md5sum | tr -d ' -')
+        ONVIF_MAC="02:${HASH:0:2}:${HASH:2:2}:${HASH:4:2}:${HASH:6:2}:${HASH:8:2}"
+        bashio::log.info "  Camera [${CAM_NAME}] — auto-generated MAC: ${ONVIF_MAC}"
+    fi
 
     # Interface name: max 15 chars — "onvif-" (6) + first 9 chars of cam name
     IFACE_NAME="onvif-${CAM_NAME:0:9}"

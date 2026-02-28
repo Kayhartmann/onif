@@ -1,6 +1,6 @@
 name: "Reolink UniFi Bridge"
 description: "Verbindet Reolink Kameras mit UniFi Protect über ONVIF. Enthält Neolink, go2rtc und ONVIF-Server in einem Add-on."
-version: "1.0.6"
+version: "1.0.7"
 slug: "reolink_unifi_bridge"
 url: "https://github.com/Kayhartmann/onif"
 startup: services
@@ -39,7 +39,6 @@ options:
       enable_preview: false
       ip_mode: "static"
       onvif_ip: "192.168.1.201"
-      onvif_mac: "02:00:00:00:01:01"
       stream_high_width: 1920
       stream_high_height: 1080
       stream_high_fps: 15
@@ -68,14 +67,14 @@ schema:
       enable_preview: bool
       ip_mode: list(dhcp|static)
       onvif_ip: str?
-      onvif_mac: str
-      stream_high_width: int
-      stream_high_height: int
-      stream_high_fps: int
-      stream_high_bitrate: int
-      stream_low_width: int
-      stream_low_height: int
-      stream_low_fps: int
-      stream_low_bitrate: int
+      onvif_mac: str?
+      stream_high_width: int?
+      stream_high_height: int?
+      stream_high_fps: int?
+      stream_high_bitrate: int?
+      stream_low_width: int?
+      stream_low_height: int?
+      stream_low_fps: int?
+      stream_low_bitrate: int?
 
 homeassistant: "2023.1.0"

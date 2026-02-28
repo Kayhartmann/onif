@@ -51,11 +51,17 @@ if (fs.existsSync(UUID_FILE)) {
     }
 }
 
+// Auto-generate a deterministic MAC from camera name (same algorithm as 50-macvlan-setup.sh)
+function autoMac(name) {
+    const hash = crypto.createHash('md5').update(name).digest('hex');
+    return ['02', hash.substr(0, 2), hash.substr(2, 2), hash.substr(4, 2), hash.substr(6, 2), hash.substr(8, 2)].join(':');
+}
+
 let yaml = 'onvif:\n';
 
 cameras.forEach((camera, index) => {
     const name    = camera.name;
-    const mac     = camera.onvif_mac;
+    const mac     = camera.onvif_mac || autoMac(name);
     const onvifPort  = ONVIF_BASE + index;
     const rtspFwdPort   = onvifPort + 100;
     const snapshotPort  = onvifPort + 200;
