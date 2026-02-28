@@ -162,6 +162,27 @@ body {
     margin-bottom: 12px;
 }
 
+.camera-header-badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* IP Mode badge */
+.ip-mode-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.ip-mode-badge.dhcp   { background: rgba(139,92,246,0.18); color: var(--purple); }
+.ip-mode-badge.static { background: rgba(59,130,246,0.15); color: var(--blue); }
+
+.waiting { color: var(--text-muted); font-style: italic; }
+
 .camera-name {
     font-weight: 600;
     font-size: 15px;

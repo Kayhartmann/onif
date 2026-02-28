@@ -1,0 +1,34 @@
+#!/bin/sh
+# udhcpc script for ONVIF MacVLAN interfaces
+# Called by udhcpc with $1 = bound|renew|deconfig|leasefail
+case "$1" in
+    bound|renew)
+        # Calculate CIDR prefix from subnet mask
+        mask2cidr() {
+            local mask="$1" cidr=0
+            IFS='.' read -r a b c d << _EOF
+$mask
+_EOF
+            for octet in $a $b $c $d; do
+                while [ "$octet" -gt 0 ]; do
+                    cidr=$((cidr + (octet & 1)))
+                    octet=$((octet >> 1))
+                done
+            done
+            echo "$cidr"
+        }
+        CIDR=$(mask2cidr "${subnet:-255.255.255.0}")
+        ip addr flush dev "${interface}" 2>/dev/null || true
+        ip addr add "${ip}/${CIDR}" dev "${interface}"
+        if [ -n "$router" ]; then
+            ip route add default via "${router}" dev "${interface}" 2>/dev/null || true
+        fi
+        ;;
+    deconfig)
+        ip addr flush dev "${interface}" 2>/dev/null || true
+        ;;
+    leasefail|nak)
+        echo "udhcpc: failed to get lease on ${interface}" >&2
+        ;;
+esac
+exit 0

@@ -76,20 +76,32 @@ function renderCameraCard(cam) {
         ? '<span class="status-badge online">Streaming</span>'
         : '';
 
+    const ipModeBadge = cam.ip_mode === 'dhcp'
+        ? '<span class="ip-mode-badge dhcp">DHCP</span>'
+        : '<span class="ip-mode-badge static">Static</span>';
+
+    // For DHCP: show actual assigned IP (may differ from any configured value)
+    const onvifIpDisplay = cam.onvif_ip
+        ? escapeHtml(cam.onvif_ip)
+        : '<span class="waiting">waiting for lease…</span>';
+
     return `
         <div class="camera-card">
             <div class="camera-card-header">
                 <span class="camera-name">&#x1F4F7; ${escapeHtml(cam.name)}</span>
-                ${streamingBadge}
+                <div class="camera-header-badges">
+                    ${ipModeBadge}
+                    ${streamingBadge}
+                </div>
             </div>
             <div class="camera-meta">
                 <div class="camera-meta-row">
-                    <span class="camera-meta-label">Address</span>
+                    <span class="camera-meta-label">Camera IP</span>
                     <span class="camera-meta-value">${escapeHtml(cam.address)}</span>
                 </div>
                 <div class="camera-meta-row">
                     <span class="camera-meta-label">ONVIF IP</span>
-                    <span class="camera-meta-value">${escapeHtml(cam.onvif_ip)}</span>
+                    <span class="camera-meta-value">${onvifIpDisplay}</span>
                 </div>
                 ${cam.is_battery_camera ? `
                 <div class="camera-meta-row">

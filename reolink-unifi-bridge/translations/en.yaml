@@ -69,11 +69,21 @@ configuration:
     name: Enable Preview (MQTT)
     description: >
       Publish preview images to MQTT when motion is detected. Higher data usage.
-  cameras_onvif_ip:
-    name: ONVIF Virtual IP
+  cameras_ip_mode:
+    name: IP Mode
     description: >
+      How the ONVIF virtual interface gets its IP address.
+      "dhcp" — the router assigns an IP automatically based on the onvif_mac address.
+      Recommended: create a DHCP reservation in your router so the camera always
+      gets the same IP.
+      "static" — you manually specify the IP in the onvif_ip field below.
+  cameras_onvif_ip:
+    name: ONVIF Virtual IP (Static only)
+    description: >
+      Required when ip_mode is "static". Leave empty when using DHCP.
       The IP address that UniFi Protect will see for this camera's ONVIF interface.
-      Must be unique, on the same subnet as your host, and reserved in your DHCP server.
+      Must be unique, on the same subnet as your host.
+      When using DHCP, set a MAC-based reservation in your router instead.
       Example: 192.168.1.201
   cameras_onvif_mac:
     name: ONVIF Virtual MAC Address
@@ -90,6 +100,12 @@ configuration:
   cameras_stream_high_fps:
     name: High Quality FPS
     description: Frames per second for the high-quality stream. Common values: 15, 20, 25, 30.
+  cameras_stream_high_bitrate:
+    name: High Quality Bitrate (kbps)
+    description: >
+      Target bitrate for the high-quality stream in kbps, reported to UniFi Protect.
+      This is metadata only — the actual bitrate is set on the camera.
+      Common values: 2048, 4096, 6144.
   cameras_stream_low_width:
     name: Low Quality Width (px)
     description: Width of the sub/low-quality stream. Common: 640, 720, 896.
@@ -99,3 +115,8 @@ configuration:
   cameras_stream_low_fps:
     name: Low Quality FPS
     description: Frames per second for the low-quality stream. Common: 7, 10, 15.
+  cameras_stream_low_bitrate:
+    name: Low Quality Bitrate (kbps)
+    description: >
+      Target bitrate for the low-quality stream in kbps.
+      Common values: 256, 512, 1024.

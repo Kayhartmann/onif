@@ -20,6 +20,7 @@ RUN apk add --no-cache \
     jq \
     python3 \
     netcat-openbsd \
+    busybox-extras \
     && rm -rf /var/cache/apk/*
 
 # Install Neolink (arch-specific binary)
@@ -48,8 +49,10 @@ RUN \
     && chmod +x /usr/local/bin/go2rtc
 
 # Install ONVIF Server (daniela-hase/onvif-server)
-RUN mkdir -p /opt/onvif-server
-WORKDIR /opt/onvif-server
+# Installs to /app to match the working hassio-onvif-server convention.
+# Started as: node /app/main.js /data/onvif.yaml
+RUN mkdir -p /app
+WORKDIR /app
 RUN wget -q "https://github.com/daniela-hase/onvif-server/archive/refs/heads/main.tar.gz" \
        -O - | tar xz --strip-components=1 \
     && npm install --production --silent \
@@ -71,7 +74,8 @@ COPY rootfs /
 RUN find /etc/cont-init.d -name "*.sh" -exec chmod +x {} \; \
     && find /etc/services.d -name "run" -exec chmod +x {} \; \
     && find /etc/services.d -name "finish" -exec chmod +x {} \; \
-    && chmod +x /usr/bin/wait-for-port
+    && chmod +x /usr/bin/wait-for-port \
+    && chmod +x /usr/bin/udhcpc-onvif-script
 
 # Configure mosquitto for local-only listening
 RUN mkdir -p /etc/mosquitto/conf.d \

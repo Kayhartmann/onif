@@ -13,6 +13,7 @@ const GO2RTC_PORT = parseInt(process.env.GO2RTC_PORT || '18554', 10);
 const MQTT_HOST = process.env.MQTT_HOST || '127.0.0.1';
 const MQTT_PORT = parseInt(process.env.MQTT_PORT || '1883', 10);
 const OPTIONS_FILE = process.env.OPTIONS_FILE || '/data/options.json';
+const IP_MAP_FILE = '/tmp/camera-ips.json';
 
 // ─── State ─────────────────────────────────────────────────────────────────────
 /** @type {Array<{time: string, camera: string, state: 'on'|'off'}>} */
@@ -34,6 +35,16 @@ function loadOptions() {
 }
 
 let options = loadOptions();
+
+// ─── Load IP map (written by 50-macvlan-setup.sh after DHCP/static assignment) ─
+function loadIpMap() {
+    try {
+        const raw = fs.readFileSync(IP_MAP_FILE, 'utf8');
+        return JSON.parse(raw);
+    } catch {
+        return {};
+    }
+}
 
 // ─── TCP Port check helper ─────────────────────────────────────────────────────
 function checkPort(host, port, timeoutMs = 2000) {
@@ -210,11 +221,15 @@ app.get('/api/status', async (req, res) => {
         checkPort('127.0.0.1', GO2RTC_PORT),
     ]);
 
-    // ONVIF: check if any onvif port 8080 is reachable on any camera IP
+    // ONVIF: check if port 8001 (first camera's ONVIF port) is reachable
+    // daniela-hase/onvif-server assigns ports starting at 8001 per camera
     const cameras = (options.cameras || []);
+    const ipMap = loadIpMap();
     let onvifUp = false;
     if (cameras.length > 0) {
-        onvifUp = await checkPort(cameras[0].onvif_ip || '127.0.0.1', 8080);
+        const firstCam = cameras[0];
+        const actualIp = ipMap[firstCam.name] || firstCam.onvif_ip || '127.0.0.1';
+        onvifUp = await checkPort(actualIp, 8001);
     }
 
     res.json({
@@ -233,6 +248,7 @@ app.get('/api/status', async (req, res) => {
 app.get('/api/cameras', async (req, res) => {
     options = loadOptions();
     const cameras = options.cameras || [];
+    const ipMap = loadIpMap();
 
     const go2rtcStreams = await fetchGo2rtcStreams();
 
@@ -245,10 +261,16 @@ app.get('/api/cameras', async (req, res) => {
             ? (Array.isArray(streamInfo.clients) && streamInfo.clients.length > 0)
             : false;
 
+        // Actual IP: from the map for DHCP cameras, or the configured static IP
+        const actualIp = ipMap[cam.name] || cam.onvif_ip || null;
+        const ipMode = cam.ip_mode || 'static';
+
         return {
             name: cam.name,
             address: cam.address,
-            onvif_ip: cam.onvif_ip,
+            ip_mode: ipMode,
+            onvif_ip: actualIp,
+            onvif_ip_configured: cam.onvif_ip || null,
             is_battery_camera: cam.is_battery_camera,
             enable_motion: cam.enable_motion,
             enable_battery: cam.enable_battery,

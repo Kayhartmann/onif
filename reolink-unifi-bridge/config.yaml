@@ -38,14 +38,17 @@ schema:
       enable_motion: bool
       enable_battery: bool
       enable_preview: bool
-      onvif_ip: str
+      ip_mode: list(dhcp|static)
+      onvif_ip: str?
       onvif_mac: str
       stream_high_width: int
       stream_high_height: int
       stream_high_fps: int
+      stream_high_bitrate: int
       stream_low_width: int
       stream_low_height: int
       stream_low_fps: int
+      stream_low_bitrate: int
 
 image: "ghcr.io/kayhartmann/reolink-unifi-bridge/{arch}"
 
