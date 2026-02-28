@@ -16,14 +16,24 @@ CONFIG_FILE="/data/neolink/neolink.toml"
 mkdir -p /data/neolink
 
 # Determine if any camera has MQTT features enabled
+# (enable_motion / enable_battery / enable_preview are optional — default false)
 MQTT_ENABLED=false
 CAMERA_COUNT=$(bashio::config 'cameras | length')
 
 if bashio::config.exists 'cameras'; then
     for i in $(seq 0 $((CAMERA_COUNT - 1))); do
-        ENABLE_MOTION=$(bashio::config "cameras[${i}].enable_motion")
-        ENABLE_BATTERY=$(bashio::config "cameras[${i}].enable_battery")
-        ENABLE_PREVIEW=$(bashio::config "cameras[${i}].enable_preview")
+        ENABLE_MOTION=false
+        ENABLE_BATTERY=false
+        ENABLE_PREVIEW=false
+        if bashio::config.exists "cameras[${i}].enable_motion"; then
+            ENABLE_MOTION=$(bashio::config "cameras[${i}].enable_motion")
+        fi
+        if bashio::config.exists "cameras[${i}].enable_battery"; then
+            ENABLE_BATTERY=$(bashio::config "cameras[${i}].enable_battery")
+        fi
+        if bashio::config.exists "cameras[${i}].enable_preview"; then
+            ENABLE_PREVIEW=$(bashio::config "cameras[${i}].enable_preview")
+        fi
 
         if bashio::var.true "${ENABLE_MOTION}" || \
            bashio::var.true "${ENABLE_BATTERY}" || \
@@ -68,12 +78,26 @@ if bashio::config.exists 'cameras'; then
         CAM_NAME=$(bashio::config "cameras[${i}].name")
         CAM_USERNAME=$(bashio::config "cameras[${i}].username")
         CAM_PASSWORD=$(bashio::config "cameras[${i}].password")
-        IS_BATTERY=$(bashio::config "cameras[${i}].is_battery_camera")
-        ENABLE_MOTION=$(bashio::config "cameras[${i}].enable_motion")
-        ENABLE_BATTERY=$(bashio::config "cameras[${i}].enable_battery")
-        ENABLE_PREVIEW=$(bashio::config "cameras[${i}].enable_preview")
 
-        # Optional fields
+        # Optional bool fields — default false
+        IS_BATTERY=false
+        ENABLE_MOTION=false
+        ENABLE_BATTERY=false
+        ENABLE_PREVIEW=false
+        if bashio::config.exists "cameras[${i}].is_battery_camera"; then
+            IS_BATTERY=$(bashio::config "cameras[${i}].is_battery_camera")
+        fi
+        if bashio::config.exists "cameras[${i}].enable_motion"; then
+            ENABLE_MOTION=$(bashio::config "cameras[${i}].enable_motion")
+        fi
+        if bashio::config.exists "cameras[${i}].enable_battery"; then
+            ENABLE_BATTERY=$(bashio::config "cameras[${i}].enable_battery")
+        fi
+        if bashio::config.exists "cameras[${i}].enable_preview"; then
+            ENABLE_PREVIEW=$(bashio::config "cameras[${i}].enable_preview")
+        fi
+
+        # Optional string fields
         CAM_ADDRESS=""
         CAM_UID=""
         CAM_CHANNEL=""
@@ -90,14 +114,6 @@ if bashio::config.exists 'cameras'; then
         if bashio::config.exists "cameras[${i}].discovery"; then
             CAM_DISCOVERY=$(bashio::config "cameras[${i}].discovery")
         fi
-
-        # Stream settings
-        HIGH_W=$(bashio::config "cameras[${i}].stream_high_width")
-        HIGH_H=$(bashio::config "cameras[${i}].stream_high_height")
-        HIGH_FPS=$(bashio::config "cameras[${i}].stream_high_fps")
-        LOW_W=$(bashio::config "cameras[${i}].stream_low_width")
-        LOW_H=$(bashio::config "cameras[${i}].stream_low_height")
-        LOW_FPS=$(bashio::config "cameras[${i}].stream_low_fps")
 
         if [ -n "${CAM_ADDRESS}" ]; then
             bashio::log.info "Configuring camera: ${CAM_NAME} (${CAM_ADDRESS})"
