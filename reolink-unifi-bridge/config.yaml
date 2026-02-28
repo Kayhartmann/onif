@@ -1,19 +1,25 @@
-name: "Reolink → UniFi Protect Bridge"
-description: "Verbindet Reolink Kameras (Baichuan) mit UniFi Protect über ONVIF. Enthält Neolink, go2rtc und ONVIF-Server in einem Add-on."
+name: "Reolink UniFi Bridge"
+description: "Verbindet Reolink Kameras mit UniFi Protect über ONVIF. Enthält Neolink, go2rtc und ONVIF-Server in einem Add-on."
 version: "1.0.0"
 slug: "reolink_unifi_bridge"
 url: "https://github.com/Kayhartmann/onif"
+startup: services
+boot: auto
 init: false
 arch:
   - amd64
   - aarch64
   - armhf
   - armv7
-privileged: true
+privileged:
+  - NET_ADMIN
+  - SYS_ADMIN
+host_network: true
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:cctv
 panel_title: "Reolink Bridge"
+kernel_modules: true
 map:
   - config:rw
 options:
@@ -21,7 +27,26 @@ options:
   neolink_port: 8554
   go2rtc_port: 18554
   log_level: "info"
-  cameras: []
+  cameras:
+    - name: "MeineKamera"
+      address: "192.168.1.100"
+      username: "admin"
+      password: "passwort"
+      is_battery_camera: false
+      enable_motion: false
+      enable_battery: false
+      enable_preview: false
+      ip_mode: "static"
+      onvif_ip: "192.168.1.201"
+      onvif_mac: "02:00:00:00:01:01"
+      stream_high_width: 1920
+      stream_high_height: 1080
+      stream_high_fps: 15
+      stream_high_bitrate: 4096
+      stream_low_width: 640
+      stream_low_height: 360
+      stream_low_fps: 7
+      stream_low_bitrate: 512
 schema:
   host_interface: str
   neolink_port: int
