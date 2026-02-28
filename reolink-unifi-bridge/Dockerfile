@@ -6,7 +6,7 @@ ARG BUILD_ARCH
 ARG NEOLINK_VERSION="0.6.1"
 ARG GO2RTC_VERSION="1.9.7"
 
-# Install system dependencies
+# Install system dependencies (non-GStreamer)
 RUN apk add --no-cache \
     nodejs \
     npm \
@@ -23,17 +23,20 @@ RUN apk add --no-cache \
     busybox-extras \
     gcompat \
     libgcc \
+    && rm -rf /var/cache/apk/*
+
+# Install ALL GStreamer packages from Alpine edge in one step.
+# gst-rtsp-server is only in edge/community (not in stable 3.19).
+# All packages must come from the same version to avoid "symbol not found" errors.
+RUN apk add --no-cache \
+    -X https://dl-cdn.alpinelinux.org/alpine/edge/main \
+    -X https://dl-cdn.alpinelinux.org/alpine/edge/community \
     glib \
     gstreamer \
     gst-plugins-base \
     gst-plugins-good \
     gst-plugins-bad \
     gst-plugins-ugly \
-    && rm -rf /var/cache/apk/*
-
-# Install gst-rtsp-server from Alpine edge (not available in stable 3.19)
-RUN apk add --no-cache \
-    --repository https://dl-cdn.alpinelinux.org/alpine/edge/community \
     gst-rtsp-server \
     && rm -rf /var/cache/apk/*
 
@@ -110,4 +113,4 @@ LABEL \
     io.hass.description="Connects Reolink cameras to UniFi Protect via ONVIF" \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
-    io.hass.version="1.0.4"
+    io.hass.version="1.0.5"
