@@ -22,6 +22,11 @@ RUN apk add --no-cache \
     netcat-openbsd \
     busybox-extras \
     gcompat \
+    libgcc \
+    glib \
+    gstreamer \
+    gst-plugins-base \
+    gst-rtsp-server \
     && rm -rf /var/cache/apk/*
 
 # Install Neolink (arch-specific binary)
@@ -96,4 +101,4 @@ LABEL \
     io.hass.description="Connects Reolink cameras to UniFi Protect via ONVIF" \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
-    io.hass.version="1.0.2"
+    io.hass.version="1.0.3"
