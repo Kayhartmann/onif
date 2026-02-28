@@ -24,9 +24,6 @@ bashio::log.info "Starting Neolink (log level: ${NEOLINK_LOG})..."
 
 export RUST_LOG="${NEOLINK_LOG}"
 
-# gcompat provides glibc shim for this Debian-compiled binary on Alpine/musl
-export LD_PRELOAD=/lib/libgcompat.so.0
-
 exec neolink \
     --config "${CONFIG_FILE}" \
     rtsp

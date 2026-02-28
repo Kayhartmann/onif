@@ -6,10 +6,12 @@ ARG BUILD_ARCH
 ARG NEOLINK_VERSION="0.6.1"
 ARG GO2RTC_VERSION="1.9.7"
 
-# Install system dependencies
-# NOTE: GStreamer is NOT needed — neolink v0.6.x uses a pure Rust RTSP implementation.
-# Installing GStreamer from Alpine edge caused "statx: symbol not found" ABI conflicts.
-RUN apk add --no-cache \
+# Install system dependencies.
+# Debian base is required: neolink is a glibc binary (compiled for Debian Bullseye)
+# and needs glibc-linked GStreamer libraries. Alpine's musl-compiled GStreamer
+# causes "symbol not found" ABI errors that cannot be worked around with gcompat.
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs \
     npm \
     mosquitto \
@@ -22,10 +24,16 @@ RUN apk add --no-cache \
     jq \
     python3 \
     netcat-openbsd \
-    busybox-extras \
-    gcompat \
-    libgcc \
-    && rm -rf /var/cache/apk/*
+    udhcpc \
+    libgstreamer1.0-0 \
+    libgstreamer-plugins-base1.0-0 \
+    libgstreamer-plugins-bad1.0-0 \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-libav \
+    libgstrtspserver-1.0-0 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Neolink (arch-specific binary)
 RUN \
@@ -42,7 +50,7 @@ RUN \
     && chmod +x /usr/local/bin/neolink \
     && rm -rf /tmp/neolink.zip /tmp/neolink_extract
 
-# Install go2rtc (arch-specific binary)
+# Install go2rtc (arch-specific binary, statically linked Go — works on any Linux)
 RUN \
     if [ "${BUILD_ARCH}" = "amd64" ]; then GO2RTC_ARCH="amd64"; \
     elif [ "${BUILD_ARCH}" = "aarch64" ]; then GO2RTC_ARCH="arm64"; \
@@ -54,8 +62,7 @@ RUN \
     && chmod +x /usr/local/bin/go2rtc
 
 # Install ONVIF Server (daniela-hase/onvif-server)
-# Installs to /app to match the working hassio-onvif-server convention.
-# Started as: node /app/main.js /data/onvif.yaml
+# Installs to /app. Started as: node /app/main.js /data/onvif.yaml
 RUN mkdir -p /app
 WORKDIR /app
 RUN wget -q "https://github.com/daniela-hase/onvif-server/archive/refs/heads/main.tar.gz" \
@@ -83,8 +90,8 @@ RUN find /etc/cont-init.d -name "*.sh" -exec chmod +x {} \; \
     && chmod +x /usr/bin/udhcpc-onvif-script
 
 # Configure mosquitto for local-only listening.
-# We point mosquitto directly at this file (not the main mosquitto.conf) so there
-# is no conflict with any pid_file directive in the default config.
+# Run mosquitto directly with local.conf to avoid pid_file conflicts
+# with the distro default mosquitto.conf.
 RUN mkdir -p /etc/mosquitto/conf.d \
     && printf 'listener 1883 127.0.0.1\nallow_anonymous true\npid_file /tmp/mosquitto.pid\n' \
        > /etc/mosquitto/conf.d/local.conf \
@@ -102,4 +109,4 @@ LABEL \
     io.hass.description="Connects Reolink cameras to UniFi Protect via ONVIF" \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
-    io.hass.version="1.0.9"
+    io.hass.version="1.0.10"
