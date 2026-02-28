@@ -10,6 +10,9 @@
 # Errors are logged but do NOT stop the add-on.
 # ==============================================================================
 
+# bashio sets -eo pipefail — disable so pipeline failures don't abort the add-on
+set +e
+
 HOST_IFACE=$(bashio::config 'host_interface')
 CAMERA_COUNT=$(bashio::config 'cameras | length')
 IP_MAP_FILE="/tmp/camera-ips.json"
@@ -26,9 +29,12 @@ fi
 
 # Determine host subnet prefix length once (default /24)
 PREFIX_LEN="24"
-HOST_NETWORK=$(ip route | grep "${HOST_IFACE}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+' | head -1)
+HOST_NETWORK=$(ip route 2>/dev/null | grep "${HOST_IFACE}" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+' | head -1 || true)
 if [ -n "${HOST_NETWORK}" ]; then
     PREFIX_LEN=$(echo "${HOST_NETWORK}" | cut -d'/' -f2)
+    bashio::log.info "Detected subnet prefix /${PREFIX_LEN} from route ${HOST_NETWORK}"
+else
+    bashio::log.info "Could not detect subnet prefix, using default /24"
 fi
 
 for i in $(seq 0 $((CAMERA_COUNT - 1))); do
@@ -66,16 +72,13 @@ for i in $(seq 0 $((CAMERA_COUNT - 1))); do
     if [ "${IP_MODE}" = "dhcp" ]; then
         bashio::log.info "    Running DHCP on ${IFACE_NAME}..."
 
-        # udhcpc: -n exits immediately on failure, -q quits after lease
-        # -t 10 retries, -T 3 seconds timeout per attempt
         if udhcpc \
                 -i "${IFACE_NAME}" \
                 -s /usr/bin/udhcpc-onvif-script \
                 -n -q -t 10 -T 3 2>/dev/null; then
 
-            # Read the IP the script assigned to the interface
-            ASSIGNED_IP=$(ip addr show dev "${IFACE_NAME}" \
-                          | grep -oE 'inet [0-9.]+' | head -1 | cut -d' ' -f2)
+            ASSIGNED_IP=$(ip addr show dev "${IFACE_NAME}" 2>/dev/null \
+                          | grep -oE 'inet [0-9.]+' | head -1 | cut -d' ' -f2 || true)
 
             if [ -n "${ASSIGNED_IP}" ]; then
                 bashio::log.info "    DHCP lease obtained: ${ASSIGNED_IP} on ${IFACE_NAME}"
@@ -119,3 +122,4 @@ print(json.dumps(data))
 done
 
 bashio::log.info "MacVLAN setup complete. IP map written to ${IP_MAP_FILE}"
+exit 0
