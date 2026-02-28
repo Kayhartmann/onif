@@ -2,6 +2,7 @@ name: "Reolink → UniFi Protect Bridge"
 description: "Verbindet Reolink Kameras (Baichuan) mit UniFi Protect über ONVIF. Enthält Neolink, go2rtc und ONVIF-Server in einem Add-on."
 version: "1.0.0"
 slug: "reolink_unifi_bridge"
+url: "https://github.com/Kayhartmann/onif"
 init: false
 arch:
   - amd64
