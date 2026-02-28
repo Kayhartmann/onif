@@ -21,16 +21,17 @@ RUN apk add --no-cache \
     python3 \
     netcat-openbsd \
     busybox-extras \
+    gcompat \
     && rm -rf /var/cache/apk/*
 
 # Install Neolink (arch-specific binary)
 RUN \
-    if [ "${BUILD_ARCH}" = "amd64" ]; then NEOLINK_ARCH="x86_64-unknown-linux-musl"; \
-    elif [ "${BUILD_ARCH}" = "aarch64" ]; then NEOLINK_ARCH="aarch64-unknown-linux-musl"; \
-    elif [ "${BUILD_ARCH}" = "armhf" ]; then NEOLINK_ARCH="arm-unknown-linux-musleabihf"; \
-    elif [ "${BUILD_ARCH}" = "armv7" ]; then NEOLINK_ARCH="armv7-unknown-linux-musleabihf"; \
+    if [ "${BUILD_ARCH}" = "amd64" ]; then NEOLINK_FILE="neolink_linux_x86_64_bullseye"; \
+    elif [ "${BUILD_ARCH}" = "aarch64" ]; then NEOLINK_FILE="neolink_linux_arm64"; \
+    elif [ "${BUILD_ARCH}" = "armhf" ]; then NEOLINK_FILE="neolink_linux_armhf"; \
+    elif [ "${BUILD_ARCH}" = "armv7" ]; then NEOLINK_FILE="neolink_linux_armhf"; \
     else echo "Unsupported arch: ${BUILD_ARCH}" && exit 1; fi \
-    && wget -q "https://github.com/QuantumEntangledAndy/neolink/releases/download/v${NEOLINK_VERSION}/neolink_${NEOLINK_ARCH}.zip" \
+    && wget -q "https://github.com/QuantumEntangledAndy/neolink/releases/download/v${NEOLINK_VERSION}/${NEOLINK_FILE}.zip" \
        -O /tmp/neolink.zip \
     && unzip /tmp/neolink.zip -d /tmp/neolink_extract \
     && find /tmp/neolink_extract -name "neolink" -type f -exec cp {} /usr/local/bin/neolink \; \
