@@ -50,6 +50,4 @@ schema:
       stream_low_fps: int
       stream_low_bitrate: int
 
-image: "ghcr.io/kayhartmann/reolink-unifi-bridge/{arch}"
-
 homeassistant: "2023.1.0"
