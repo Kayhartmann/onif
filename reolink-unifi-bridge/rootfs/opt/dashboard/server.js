@@ -233,11 +233,11 @@ app.get('/api/status', async (req, res) => {
     services: {
       mqtt: {
         running:   mqttConnected,
-        auto:      true,
+        source:    mqttInfo ? (mqttInfo.source || 'auto') : 'none',
         host:      mqttInfo ? mqttInfo.host : null,
         port:      mqttInfo ? mqttInfo.port : null,
         ssl:       mqttInfo ? mqttInfo.ssl  : false,
-        available: mqttInfo !== null
+        available: mqttInfo !== null && mqttInfo.available !== false
       },
       neolink:   { running: neolinkUp,    port: NEOLINK_PORT },
       go2rtc:    { running: go2rtcUp,     port: GO2RTC_PORT, api_port: GO2RTC_API, api_running: go2rtcApiUp },

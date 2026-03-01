@@ -76,13 +76,20 @@ function renderServiceDetails (services) {
   const grid = qs('#service-details-grid');
   if (!grid) return;
 
+  const mqttSrc = services.mqtt.source === 'manual' ? 'Manuell konfiguriert'
+    : services.mqtt.source === 'auto' ? 'HA-Supervisor (auto)'
+    : 'Nicht verfügbar';
   const mqttDetails = services.mqtt.available
     ? [
         `Host: ${services.mqtt.host || '—'}`,
         `Port: ${services.mqtt.port || '—'}${services.mqtt.ssl ? ' (SSL)' : ''}`,
-        'Quelle: HA-Supervisor (auto)'
+        `Quelle: ${mqttSrc}`
       ]
-    : ['Nicht verfügbar', 'Mosquitto Add-on installieren'];
+    : [
+        'Kein MQTT-Broker gefunden',
+        'Mosquitto Add-on installieren',
+        'ODER mqtt_host in Add-on-Config setzen'
+      ];
 
   const items = [
     {
