@@ -7,8 +7,10 @@ set -e
 
 bashio::log.info "Generating go2rtc configuration..."
 
-NEOLINK_PORT=$(bashio::config 'neolink_port')
-GO2RTC_PORT=$(bashio::config 'go2rtc_port')
+# Read actual ports selected by 05-port-selection.sh
+NEOLINK_PORT=$(jq -r '.neolink'     /tmp/actual-ports.json)
+GO2RTC_PORT=$(jq  -r '.go2rtc_rtsp' /tmp/actual-ports.json)
+GO2RTC_API=$(jq   -r '.go2rtc_api'  /tmp/actual-ports.json)
 NEOLINK_RTSP_PASSWORD=$(bashio::config 'neolink_rtsp_password')
 CONFIG_FILE="/data/go2rtc/go2rtc.yaml"
 
@@ -39,7 +41,7 @@ cat > "${CONFIG_FILE}" << EOF
 # DO NOT EDIT - Changes will be overwritten on restart.
 
 api:
-  listen: "127.0.0.1:1984"
+  listen: "127.0.0.1:${GO2RTC_API}"
   base_path: ""
 
 rtsp:

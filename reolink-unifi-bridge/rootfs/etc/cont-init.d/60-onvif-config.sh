@@ -16,11 +16,7 @@ set -e
 
 bashio::log.info "Generating ONVIF server configuration (YAML)..."
 
-GO2RTC_PORT=$(bashio::config 'go2rtc_port')
 CONFIG_FILE="/data/onvif.yaml"
-
-# ONVIF ports start at 8001 and increment per camera
-ONVIF_BASE_PORT=8001
 
 # Generate the YAML config using an inline Node.js script
 # (Node is available in the container; avoids complex bash YAML generation)
@@ -29,11 +25,14 @@ node - << NODEJS
 const fs     = require('fs');
 const crypto = require('crypto');
 
-const GO2RTC_PORT  = ${GO2RTC_PORT};
+// Read actual ports selected by 05-port-selection.sh
+const actualPorts = JSON.parse(fs.readFileSync('/tmp/actual-ports.json', 'utf8'));
+const GO2RTC_PORT = actualPorts.go2rtc_rtsp;
+const ONVIF_BASE  = actualPorts.onvif_base;
+
 const OPTIONS_FILE = '/data/options.json';
 const UUID_FILE    = '/data/uuids.json';
 const CONFIG_FILE  = '/data/onvif.yaml';
-const ONVIF_BASE   = ${ONVIF_BASE_PORT};
 
 // Load HA add-on options
 const options = JSON.parse(fs.readFileSync(OPTIONS_FILE, 'utf8'));

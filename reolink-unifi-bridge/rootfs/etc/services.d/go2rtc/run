@@ -3,7 +3,7 @@
 # Service: go2rtc (RTSP Proxy / Restreamer)
 # ==============================================================================
 
-NEOLINK_PORT=$(bashio::config 'neolink_port')
+NEOLINK_PORT=$(jq -r '.neolink' /tmp/actual-ports.json)
 
 bashio::log.info "Waiting for Neolink RTSP to be ready on port ${NEOLINK_PORT}..."
 wait-for-port 127.0.0.1 "${NEOLINK_PORT}" 60 || {

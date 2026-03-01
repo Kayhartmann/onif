@@ -4,16 +4,15 @@
 # Starts immediately - shows "starting" state while other services come up.
 # ==============================================================================
 
-bashio::log.info "Starting Reolink Bridge Dashboard on port 8099..."
+DASHBOARD_PORT=$(jq -r '.dashboard' /tmp/actual-ports.json)
+bashio::log.info "Starting Reolink Bridge Dashboard on port ${DASHBOARD_PORT}..."
 
-# Export config values as environment variables for the Node.js app
-NEOLINK_PORT=$(bashio::config 'neolink_port')
-export NEOLINK_PORT
-GO2RTC_PORT=$(bashio::config 'go2rtc_port')
-export GO2RTC_PORT
-export DASHBOARD_PORT=8099
-export MQTT_HOST="127.0.0.1"
-export MQTT_PORT=1883
+# Export actual ports from 05-port-selection.sh for the Node.js app
+NEOLINK_PORT=$(jq -r '.neolink'     /tmp/actual-ports.json)
+GO2RTC_PORT=$(jq  -r '.go2rtc_rtsp' /tmp/actual-ports.json)
+GO2RTC_API=$(jq   -r '.go2rtc_api'  /tmp/actual-ports.json)
+ONVIF_BASE=$(jq   -r '.onvif_base'  /tmp/actual-ports.json)
+export NEOLINK_PORT GO2RTC_PORT GO2RTC_API ONVIF_BASE DASHBOARD_PORT
 export OPTIONS_FILE="/data/options.json"
 
 cd /opt/dashboard || exit 1

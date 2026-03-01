@@ -8,7 +8,8 @@ set -e
 
 bashio::log.info "Generating Neolink configuration from add-on settings..."
 
-NEOLINK_PORT=$(bashio::config 'neolink_port')
+# Read actual port selected by 05-port-selection.sh
+NEOLINK_PORT=$(jq -r '.neolink' /tmp/actual-ports.json)
 NEOLINK_RTSP_PASSWORD=$(bashio::config 'neolink_rtsp_password')
 CONFIG_FILE="/data/neolink/neolink.toml"
 

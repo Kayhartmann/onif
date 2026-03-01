@@ -76,6 +76,14 @@ function renderServiceDetails (services) {
   const grid = qs('#service-details-grid');
   if (!grid) return;
 
+  const mqttDetails = services.mqtt.available
+    ? [
+        `Host: ${services.mqtt.host || '—'}`,
+        `Port: ${services.mqtt.port || '—'}${services.mqtt.ssl ? ' (SSL)' : ''}`,
+        'Quelle: HA-Supervisor (auto)'
+      ]
+    : ['Nicht verfügbar', 'Mosquitto Add-on installieren'];
+
   const items = [
     {
       id: 'neolink',
@@ -104,9 +112,9 @@ function renderServiceDetails (services) {
     {
       id: 'mqtt',
       name: 'MQTT Broker',
-      desc: 'HA MQTT (Motion/Battery)',
+      desc: 'Motion & Batterie-Events',
       running: services.mqtt.running,
-      details: ['via Home Assistant']
+      details: mqttDetails
     }
   ];
 
@@ -279,6 +287,12 @@ async function updateStatus () {
     renderServiceChip('onvif', 'ONVIF', s.onvif.running, s.onvif.port);
     renderServiceDetails(s);
     renderCredentials(data.onvif_credentials);
+    // Show host IP in header
+    const hostIpEl = qs('#host-ip');
+    if (hostIpEl && data.host_ip) {
+      hostIpEl.textContent = data.host_ip;
+      hostIpEl.title = 'Host-IP (für RTSP-Stream-URLs)';
+    }
   } catch (err) {
     console.error('Status fetch error:', err);
   }

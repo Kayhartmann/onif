@@ -8,12 +8,22 @@ const os      = require('os');
 const mqtt    = require('mqtt');
 
 // ─── Configuration ─────────────────────────────────────────────────────────────
-const PORT          = parseInt(process.env.DASHBOARD_PORT || '8099', 10);
-const NEOLINK_PORT  = parseInt(process.env.NEOLINK_PORT   || '8554', 10);
-const GO2RTC_PORT   = parseInt(process.env.GO2RTC_PORT    || '18554', 10);
-const GO2RTC_API    = 1984;
-const OPTIONS_FILE  = process.env.OPTIONS_FILE || '/data/options.json';
-const IP_MAP_FILE   = '/tmp/camera-ips.json';
+const OPTIONS_FILE      = process.env.OPTIONS_FILE || '/data/options.json';
+const ACTUAL_PORTS_FILE = '/tmp/actual-ports.json';
+const IP_MAP_FILE       = '/tmp/camera-ips.json';
+
+function loadActualPorts () {
+  try { return JSON.parse(fs.readFileSync(ACTUAL_PORTS_FILE, 'utf8')); }
+  catch { return { neolink: 8554, go2rtc_rtsp: 18554, go2rtc_api: 1984, onvif_base: 8001, dashboard: 8099 }; }
+}
+
+// Live port values — re-read on each status call so hot-changes are visible
+let _ports      = loadActualPorts();
+const PORT      = _ports.dashboard  || parseInt(process.env.DASHBOARD_PORT || '8099', 10);
+let NEOLINK_PORT  = _ports.neolink     || 8554;
+let GO2RTC_PORT   = _ports.go2rtc_rtsp || 18554;
+let GO2RTC_API    = _ports.go2rtc_api  || 1984;
+let ONVIF_BASE    = _ports.onvif_base  || 8001;
 
 // ─── In-memory log buffer ──────────────────────────────────────────────────────
 const logBuffer = [];
@@ -194,6 +204,13 @@ app.get('/api/status', async (req, res) => {
   options = loadOptions();
   const hostIp = detectHostIp();
 
+  // Refresh actual ports (may have been written after server started)
+  _ports = loadActualPorts();
+  NEOLINK_PORT = _ports.neolink     || NEOLINK_PORT;
+  GO2RTC_PORT  = _ports.go2rtc_rtsp || GO2RTC_PORT;
+  GO2RTC_API   = _ports.go2rtc_api  || GO2RTC_API;
+  ONVIF_BASE   = _ports.onvif_base  || ONVIF_BASE;
+
   const [neolinkUp, go2rtcUp, go2rtcApiUp] = await Promise.all([
     checkPort('127.0.0.1', NEOLINK_PORT),
     checkPort('127.0.0.1', GO2RTC_PORT),
@@ -201,22 +218,30 @@ app.get('/api/status', async (req, res) => {
   ]);
 
   const mqttConnected = mqttClient !== null && mqttClient.connected === true;
+  const mqttInfo      = loadMqttConfig();
 
   const cameras = options.cameras || [];
   const ipMap   = loadIpMap();
   let onvifUp   = false;
   if (cameras.length > 0) {
     const ip = ipMap[cameras[0].name] || cameras[0].onvif_ip || null;
-    if (ip) onvifUp = await checkPort(ip, 8001);
+    if (ip) onvifUp = await checkPort(ip, ONVIF_BASE);
   }
 
   res.json({
     host_ip: hostIp,
     services: {
-      mqtt:      { running: mqttConnected },
+      mqtt: {
+        running:   mqttConnected,
+        auto:      true,
+        host:      mqttInfo ? mqttInfo.host : null,
+        port:      mqttInfo ? mqttInfo.port : null,
+        ssl:       mqttInfo ? mqttInfo.ssl  : false,
+        available: mqttInfo !== null
+      },
       neolink:   { running: neolinkUp,    port: NEOLINK_PORT },
       go2rtc:    { running: go2rtcUp,     port: GO2RTC_PORT, api_port: GO2RTC_API, api_running: go2rtcApiUp },
-      onvif:     { running: onvifUp,      port: 8001 },
+      onvif:     { running: onvifUp,      port: ONVIF_BASE },
       dashboard: { running: true,         port: PORT }
     },
     onvif_credentials: {
