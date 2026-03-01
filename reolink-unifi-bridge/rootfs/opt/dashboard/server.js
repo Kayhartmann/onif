@@ -1,314 +1,264 @@
 'use strict';
 
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
-const net = require('net');
-const mqtt = require('mqtt');
+const path    = require('path');
+const fs      = require('fs');
+const net     = require('net');
+const os      = require('os');
+const mqtt    = require('mqtt');
 
-// ─── Configuration from environment ───────────────────────────────────────────
-const PORT = parseInt(process.env.DASHBOARD_PORT || '8099', 10);
-const NEOLINK_PORT = parseInt(process.env.NEOLINK_PORT || '8554', 10);
-const GO2RTC_PORT = parseInt(process.env.GO2RTC_PORT || '18554', 10);
-const GO2RTC_API_PORT = 1984;
-const OPTIONS_FILE = process.env.OPTIONS_FILE || '/data/options.json';
-const IP_MAP_FILE = '/tmp/camera-ips.json';
+// ─── Configuration ─────────────────────────────────────────────────────────────
+const PORT          = parseInt(process.env.DASHBOARD_PORT || '8099', 10);
+const NEOLINK_PORT  = parseInt(process.env.NEOLINK_PORT   || '8554', 10);
+const GO2RTC_PORT   = parseInt(process.env.GO2RTC_PORT    || '18554', 10);
+const GO2RTC_API    = 1984;
+const OPTIONS_FILE  = process.env.OPTIONS_FILE || '/data/options.json';
+const IP_MAP_FILE   = '/tmp/camera-ips.json';
+
+// ─── In-memory log buffer ──────────────────────────────────────────────────────
+const logBuffer = [];
+const MAX_LOG   = 200;
+
+function addLog (level, msg) {
+  logBuffer.unshift({ time: new Date().toISOString(), level, msg });
+  if (logBuffer.length > MAX_LOG) logBuffer.pop();
+}
+
+const _log   = console.log.bind(console);
+const _warn  = console.warn.bind(console);
+const _error = console.error.bind(console);
+console.log   = (...a) => { _log(...a);   addLog('info',  a.join(' ')); };
+console.warn  = (...a) => { _warn(...a);  addLog('warn',  a.join(' ')); };
+console.error = (...a) => { _error(...a); addLog('error', a.join(' ')); };
 
 // ─── State ─────────────────────────────────────────────────────────────────────
-/** @type {Array<{time: string, camera: string, state: 'on'|'off'}>} */
-const motionEvents = [];
-const MAX_MOTION_EVENTS = 50;
+const motionEvents    = [];
+const MAX_MOTION      = 50;
+const cameraState     = {};
 
-/** @type {Record<string, {battery: number|null, motion: 'on'|'off'|'unknown', lastSeen: string|null}>} */
-const cameraState = {};
-
-// ─── Load options ──────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function loadOptions () {
   try {
-    const raw = fs.readFileSync(OPTIONS_FILE, 'utf8');
-    return JSON.parse(raw);
+    return JSON.parse(fs.readFileSync(OPTIONS_FILE, 'utf8'));
   } catch (err) {
-    console.error(`[dashboard] Failed to read options file: ${err.message}`);
-    return { cameras: [], neolink_port: NEOLINK_PORT, go2rtc_port: GO2RTC_PORT };
+    console.error(`[dashboard] Failed to read options: ${err.message}`);
+    return { cameras: [] };
   }
 }
 
 let options = loadOptions();
 
-// ─── Load MQTT config (written by 10-mqtt-config.sh from HA supervisor) ──────
 function loadMqttConfig () {
   try {
     const cfg = JSON.parse(fs.readFileSync('/tmp/mqtt.json', 'utf8'));
     return cfg.available === false ? null : cfg;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-// ─── Load IP map (written by 50-macvlan-setup.sh after DHCP/static assignment) ─
 function loadIpMap () {
-  try {
-    const raw = fs.readFileSync(IP_MAP_FILE, 'utf8');
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(fs.readFileSync(IP_MAP_FILE, 'utf8')); }
+  catch { return {}; }
 }
 
-// ─── TCP Port check helper ─────────────────────────────────────────────────────
+function detectHostIp () {
+  const ifaceName = options.host_interface || 'eth0';
+  const ifaces    = os.networkInterfaces();
+  // Try configured interface first
+  const addrs = ifaces[ifaceName] || [];
+  const primary = addrs.find(a => a.family === 'IPv4' && !a.internal);
+  if (primary) return primary.address;
+  // Fallback: first non-loopback, non-macvlan IPv4
+  for (const [name, list] of Object.entries(ifaces)) {
+    if (name === 'lo' || name.startsWith('onvif-') || name.startsWith('macvlan')) continue;
+    const addr = (list || []).find(a => a.family === 'IPv4' && !a.internal);
+    if (addr) return addr.address;
+  }
+  return '127.0.0.1';
+}
+
 function checkPort (host, port, timeoutMs = 2000) {
   return new Promise((resolve) => {
     const sock = new net.Socket();
-    let resolved = false;
-
-    const done = (result) => {
-      if (resolved) return;
-      resolved = true;
-      sock.destroy();
-      resolve(result);
-    };
-
+    let done = false;
+    const finish = (r) => { if (!done) { done = true; sock.destroy(); resolve(r); } };
     sock.setTimeout(timeoutMs);
-    sock.on('connect', () => done(true));
-    sock.on('timeout', () => done(false));
-    sock.on('error', () => done(false));
+    sock.on('connect', () => finish(true));
+    sock.on('timeout', () => finish(false));
+    sock.on('error',   () => finish(false));
     sock.connect(port, host);
   });
 }
 
-// ─── go2rtc stream status ──────────────────────────────────────────────────────
 async function fetchGo2rtcStreams () {
   try {
     const http = require('http');
-    return await new Promise((resolve, reject) => {
+    return await new Promise((resolve) => {
       const req = http.get(
-        { host: '127.0.0.1', port: 1984, path: '/api/streams', timeout: 2000 },
+        { host: '127.0.0.1', port: GO2RTC_API, path: '/api/streams', timeout: 2000 },
         (res) => {
           let data = '';
-          res.on('data', (chunk) => { data += chunk; });
-          res.on('end', () => {
-            try { resolve(JSON.parse(data)); } catch { resolve({}); }
-          });
+          res.on('data', c => { data += c; });
+          res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve({}); } });
         }
       );
-      req.on('error', () => resolve({}));
+      req.on('error',   () => resolve({}));
       req.on('timeout', () => { req.destroy(); resolve({}); });
     });
-  } catch {
-    return {};
+  } catch { return {}; }
+}
+
+// ─── MQTT ─────────────────────────────────────────────────────────────────────
+function publishAutoDiscovery (client, cam) {
+  if (cam.enable_motion) {
+    client.publish(`homeassistant/binary_sensor/${cam.name}_motion/config`, JSON.stringify({
+      name: `${cam.name} Motion`, state_topic: `neolink/${cam.name}/status/motion`,
+      payload_on: 'on', payload_off: 'off', device_class: 'motion',
+      unique_id: `reolink_${cam.name}_motion`,
+      device: { identifiers: [`reolink_${cam.name}`], name: `Reolink ${cam.name}`, manufacturer: 'Reolink', model: 'IP Camera' }
+    }), { retain: true });
+  }
+  if (cam.enable_battery) {
+    client.publish(`homeassistant/sensor/${cam.name}_battery/config`, JSON.stringify({
+      name: `${cam.name} Battery`, state_topic: `neolink/${cam.name}/status/battery_level`,
+      unit_of_measurement: '%', device_class: 'battery',
+      unique_id: `reolink_${cam.name}_battery`,
+      device: { identifiers: [`reolink_${cam.name}`], name: `Reolink ${cam.name}`, manufacturer: 'Reolink', model: 'IP Camera' }
+    }), { retain: true });
   }
 }
 
-// ─── MQTT Client ──────────────────────────────────────────────────────────────
 function startMqttClient () {
-  const mqttCfg = loadMqttConfig();
-  if (!mqttCfg) {
-    console.log('[dashboard] MQTT not available – motion/battery features disabled');
-    return null;
-  }
+  const cfg = loadMqttConfig();
+  if (!cfg) { console.log('[dashboard] MQTT not available – motion/battery disabled'); return null; }
 
-  const protocol = mqttCfg.ssl ? 'mqtts' : 'mqtt';
-  const brokerUrl = `${protocol}://${mqttCfg.host}:${mqttCfg.port}`;
-  console.log(`[dashboard] Connecting to MQTT broker: ${brokerUrl}`);
-
-  const client = mqtt.connect(brokerUrl, {
+  const url    = `${cfg.ssl ? 'mqtts' : 'mqtt'}://${cfg.host}:${cfg.port}`;
+  console.log(`[dashboard] Connecting to MQTT: ${url}`);
+  const client = mqtt.connect(url, {
     clientId: 'reolink-dashboard',
-    username: mqttCfg.username || undefined,
-    password: mqttCfg.password || undefined,
+    username: cfg.username || undefined,
+    password: cfg.password || undefined,
     reconnectPeriod: 5000,
-    connectTimeout: 10000
+    connectTimeout:  10000
   });
 
   client.on('connect', () => {
-    console.log(`[dashboard] MQTT connected to ${mqttCfg.host}:${mqttCfg.port}`);
+    console.log(`[dashboard] MQTT connected to ${cfg.host}:${cfg.port}`);
     client.subscribe('neolink/+/status/motion');
     client.subscribe('neolink/+/status/battery_level');
-
     options = loadOptions();
-    const cameras = options.cameras || [];
-    cameras.forEach((cam) => {
-      publishAutoDiscovery(client, cam);
-    });
+    (options.cameras || []).forEach(cam => publishAutoDiscovery(client, cam));
   });
 
   client.on('message', (topic, message) => {
-    const payload = message.toString();
+    const payload  = message.toString();
+    const mMotion  = topic.match(/^neolink\/(.+)\/status\/motion$/);
+    const mBattery = topic.match(/^neolink\/(.+)\/status\/battery_level$/);
 
-    const motionMatch = topic.match(/^neolink\/(.+)\/status\/motion$/);
-    if (motionMatch) {
-      const camName = motionMatch[1];
-      if (!cameraState[camName]) cameraState[camName] = { battery: null, motion: 'unknown', lastSeen: null };
-      cameraState[camName].motion = payload === 'on' ? 'on' : 'off';
-      cameraState[camName].lastSeen = new Date().toISOString();
+    if (mMotion) {
+      const name = mMotion[1];
+      if (!cameraState[name]) cameraState[name] = { battery: null, motion: 'unknown', lastSeen: null };
+      cameraState[name].motion   = payload === 'on' ? 'on' : 'off';
+      cameraState[name].lastSeen = new Date().toISOString();
       if (payload === 'on') {
-        motionEvents.unshift({ time: new Date().toISOString(), camera: camName, state: 'on' });
-        if (motionEvents.length > MAX_MOTION_EVENTS) motionEvents.pop();
+        motionEvents.unshift({ time: new Date().toISOString(), camera: name, state: 'on' });
+        if (motionEvents.length > MAX_MOTION) motionEvents.pop();
+        console.log(`[dashboard] Motion ON: ${name}`);
       }
-      return;
-    }
-
-    const batteryMatch = topic.match(/^neolink\/(.+)\/status\/battery_level$/);
-    if (batteryMatch) {
-      const camName = batteryMatch[1];
-      if (!cameraState[camName]) cameraState[camName] = { battery: null, motion: 'unknown', lastSeen: null };
+    } else if (mBattery) {
+      const name  = mBattery[1];
+      if (!cameraState[name]) cameraState[name] = { battery: null, motion: 'unknown', lastSeen: null };
       const level = parseInt(payload, 10);
-      cameraState[camName].battery = isNaN(level) ? null : level;
-      cameraState[camName].lastSeen = new Date().toISOString();
+      cameraState[name].battery  = isNaN(level) ? null : level;
+      cameraState[name].lastSeen = new Date().toISOString();
     }
   });
 
-  client.on('error', (err) => {
-    console.error(`[dashboard] MQTT error: ${err.message}`);
-  });
-
+  client.on('error', err => console.error(`[dashboard] MQTT error: ${err.message}`));
   return client;
 }
 
-function publishAutoDiscovery (client, cam) {
-  const name = cam.name;
-
-  // Motion binary sensor
-  if (cam.enable_motion) {
-    const motionConfig = {
-      name: `${name} Motion`,
-      state_topic: `neolink/${name}/status/motion`,
-      payload_on: 'on',
-      payload_off: 'off',
-      device_class: 'motion',
-      unique_id: `reolink_${name}_motion`,
-      device: {
-        identifiers: [`reolink_${name}`],
-        name: `Reolink ${name}`,
-        manufacturer: 'Reolink',
-        model: 'IP Camera'
-      }
-    };
-    client.publish(
-            `homeassistant/binary_sensor/${name}_motion/config`,
-            JSON.stringify(motionConfig),
-            { retain: true }
-    );
-    console.log(`[dashboard] Published HA auto-discovery for motion: ${name}`);
-  }
-
-  // Battery sensor
-  if (cam.enable_battery) {
-    const batteryConfig = {
-      name: `${name} Battery`,
-      state_topic: `neolink/${name}/status/battery_level`,
-      unit_of_measurement: '%',
-      device_class: 'battery',
-      unique_id: `reolink_${name}_battery`,
-      device: {
-        identifiers: [`reolink_${name}`],
-        name: `Reolink ${name}`,
-        manufacturer: 'Reolink',
-        model: 'IP Camera'
-      }
-    };
-    client.publish(
-            `homeassistant/sensor/${name}_battery/config`,
-            JSON.stringify(batteryConfig),
-            { retain: true }
-    );
-    console.log(`[dashboard] Published HA auto-discovery for battery: ${name}`);
-  }
-}
-
-// ─── Express App ───────────────────────────────────────────────────────────────
+// ─── Express ──────────────────────────────────────────────────────────────────
 const app = express();
 
-// Respect HA Ingress path prefix
+// HA Ingress path prefix stripping
 app.use((req, _res, next) => {
-  req.ingressPath = req.headers['x-ingress-path'] || '';
+  const p = req.headers['x-ingress-path'];
+  if (p && req.url.startsWith(p)) req.url = req.url.slice(p.length) || '/';
   next();
 });
 
-// Static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── GET /api/status ─────────────────────────────────────────────────────────
+// ── GET /api/status ──────────────────────────────────────────────────────────
 app.get('/api/status', async (req, res) => {
-  const [neolinkUp, go2rtcUp] = await Promise.all([
+  options = loadOptions();
+  const hostIp = detectHostIp();
+
+  const [neolinkUp, go2rtcUp, go2rtcApiUp] = await Promise.all([
     checkPort('127.0.0.1', NEOLINK_PORT),
-    checkPort('127.0.0.1', GO2RTC_PORT)
+    checkPort('127.0.0.1', GO2RTC_PORT),
+    checkPort('127.0.0.1', GO2RTC_API)
   ]);
 
-  // MQTT: check live client connection state
   const mqttConnected = mqttClient !== null && mqttClient.connected === true;
 
-  // ONVIF: check if port 8001 (first camera's ONVIF port) is reachable
-  const cameras = (options.cameras || []);
-  const ipMap = loadIpMap();
-  let onvifUp = false;
+  const cameras = options.cameras || [];
+  const ipMap   = loadIpMap();
+  let onvifUp   = false;
   if (cameras.length > 0) {
-    const firstCam = cameras[0];
-    const actualIp = ipMap[firstCam.name] || firstCam.onvif_ip || '127.0.0.1';
-    onvifUp = await checkPort(actualIp, 8001);
+    const ip = ipMap[cameras[0].name] || cameras[0].onvif_ip || null;
+    if (ip) onvifUp = await checkPort(ip, 8001);
   }
 
-  // Also check go2rtc API
-  const go2rtcApiUp = await checkPort('127.0.0.1', GO2RTC_API_PORT);
-
-  // Load ONVIF credentials from options
-  const onvifUsername = options.onvif_username || 'admin';
-  const onvifPassword = options.onvif_password || 'admin';
-
   res.json({
+    host_ip: hostIp,
     services: {
-      mqtt: { running: mqttConnected },
-      neolink: { running: neolinkUp, port: NEOLINK_PORT },
-      go2rtc: { running: go2rtcUp, port: GO2RTC_PORT, api_port: GO2RTC_API_PORT, api_running: go2rtcApiUp },
-      onvif: { running: onvifUp, port: 8001 },
-      dashboard: { running: true, port: PORT }
+      mqtt:      { running: mqttConnected },
+      neolink:   { running: neolinkUp,    port: NEOLINK_PORT },
+      go2rtc:    { running: go2rtcUp,     port: GO2RTC_PORT, api_port: GO2RTC_API, api_running: go2rtcApiUp },
+      onvif:     { running: onvifUp,      port: 8001 },
+      dashboard: { running: true,         port: PORT }
     },
     onvif_credentials: {
-      username: onvifUsername,
-      password: onvifPassword
+      username: options.onvif_username || 'admin',
+      password: options.onvif_password || 'admin'
     },
     timestamp: new Date().toISOString()
   });
 });
 
-// ── GET /api/cameras ────────────────────────────────────────────────────────
+// ── GET /api/cameras ─────────────────────────────────────────────────────────
 app.get('/api/cameras', async (req, res) => {
   options = loadOptions();
+  const hostIp  = detectHostIp();
   const cameras = options.cameras || [];
-  const ipMap = loadIpMap();
-
-  const go2rtcStreams = await fetchGo2rtcStreams();
+  const ipMap   = loadIpMap();
+  const streams = await fetchGo2rtcStreams();
 
   const result = await Promise.all(cameras.map(async (cam, index) => {
-    const state = cameraState[cam.name] || { battery: null, motion: 'unknown', lastSeen: null };
-
-    // Check if go2rtc has an active client for this stream
-    const streamInfo = go2rtcStreams[cam.name] || null;
-    const hasClients = streamInfo
-      ? (Array.isArray(streamInfo.clients) && streamInfo.clients.length > 0)
-      : false;
-
-    // Actual IP: from the map for DHCP cameras, or the configured static IP
-    const actualIp = ipMap[cam.name] || cam.onvif_ip || null;
-    const ipMode = cam.ip_mode || 'static';
+    const state     = cameraState[cam.name] || { battery: null, motion: 'unknown', lastSeen: null };
+    const info      = streams[cam.name] || null;
+    const streaming = info ? (Array.isArray(info.clients) && info.clients.length > 0) : false;
+    const actualIp  = ipMap[cam.name] || cam.onvif_ip || null;
+    const onvifPort = 8001 + index;
 
     return {
-      name: cam.name,
-      address: cam.address,
-      ip_mode: ipMode,
-      onvif_ip: actualIp,
-      onvif_ip_configured: cam.onvif_ip || null,
-      is_battery_camera: cam.is_battery_camera,
-      enable_motion: cam.enable_motion,
-      enable_battery: cam.enable_battery,
-      battery: state.battery,
-      motion: state.motion,
-      lastSeen: state.lastSeen,
-      streaming: hasClients,
-      onvif_port: 8001 + index,
-      onvif_url: actualIp ? `http://${actualIp}:${8001 + index}` : null,
+      name:           cam.name,
+      address:        cam.address   || null,
+      ip_mode:        cam.ip_mode   || 'static',
+      onvif_ip:       actualIp,
+      is_battery:     cam.is_battery_camera || false,
+      enable_motion:  cam.enable_motion     || false,
+      enable_battery: cam.enable_battery    || false,
+      battery:        state.battery,
+      motion:         state.motion,
+      lastSeen:       state.lastSeen,
+      streaming,
+      onvif_port:     onvifPort,
+      onvif_url:      actualIp ? `http://${actualIp}:${onvifPort}` : null,
       streams: {
-        high: `rtsp://[HOST]:${GO2RTC_PORT}/${cam.name}`,
-        low: `rtsp://[HOST]:${GO2RTC_PORT}/${cam.name}_sub`
+        high: `rtsp://${hostIp}:${GO2RTC_PORT}/${cam.name}`,
+        low:  `rtsp://${hostIp}:${GO2RTC_PORT}/${cam.name}_sub`
       }
     };
   }));
@@ -316,23 +266,59 @@ app.get('/api/cameras', async (req, res) => {
   res.json(result);
 });
 
-// ── GET /api/motion ─────────────────────────────────────────────────────────
-app.get('/api/motion', (req, res) => {
-  res.json(motionEvents.slice(0, 50));
-});
-
-// ── GET /api/streams ────────────────────────────────────────────────────────
+// ── GET /api/streams ─────────────────────────────────────────────────────────
 app.get('/api/streams', (req, res) => {
   options = loadOptions();
+  const hostIp  = detectHostIp();
   const cameras = options.cameras || [];
-  const result = cameras.map((cam) => ({
-    name: cam.name,
-    high: `rtsp://[HOST]:${GO2RTC_PORT}/${cam.name}`,
-    low: `rtsp://[HOST]:${GO2RTC_PORT}/${cam.name}_sub`,
-    neolink_high: `rtsp://[HOST]:${NEOLINK_PORT}/${cam.name}/main`,
-    neolink_low: `rtsp://[HOST]:${NEOLINK_PORT}/${cam.name}/sub`
+  res.json(cameras.map(cam => ({
+    name:         cam.name,
+    high:         `rtsp://${hostIp}:${GO2RTC_PORT}/${cam.name}`,
+    low:          `rtsp://${hostIp}:${GO2RTC_PORT}/${cam.name}_sub`,
+    neolink_high: `rtsp://${hostIp}:${NEOLINK_PORT}/${cam.name}/main`,
+    neolink_low:  `rtsp://${hostIp}:${NEOLINK_PORT}/${cam.name}/sub`
+  })));
+});
+
+// ── GET /api/motion ──────────────────────────────────────────────────────────
+app.get('/api/motion', (_req, res) => {
+  res.json(motionEvents.slice(0, MAX_MOTION));
+});
+
+// ── GET /api/config ──────────────────────────────────────────────────────────
+app.get('/api/config', (_req, res) => {
+  options = loadOptions();
+  const cameras = (options.cameras || []).map((cam, i) => ({
+    name:           cam.name,
+    address:        cam.address   || null,
+    uid:            cam.uid       || null,
+    ip_mode:        cam.ip_mode   || 'static',
+    onvif_ip:       cam.onvif_ip  || null,
+    onvif_mac:      cam.onvif_mac || null,
+    onvif_port:     8001 + i,
+    stream_high:    `${cam.stream_high_width || '–'}x${cam.stream_high_height || '–'} @${cam.stream_high_fps || '–'}fps ${cam.stream_high_bitrate || '–'}kbps`,
+    stream_low:     `${cam.stream_low_width  || '–'}x${cam.stream_low_height  || '–'} @${cam.stream_low_fps  || '–'}fps ${cam.stream_low_bitrate  || '–'}kbps`,
+    is_battery:     cam.is_battery_camera || false,
+    enable_motion:  cam.enable_motion     || false,
+    enable_battery: cam.enable_battery    || false
   }));
-  res.json(result);
+
+  res.json({
+    host_interface:        options.host_interface || 'eth0',
+    neolink_port:          options.neolink_port   || NEOLINK_PORT,
+    go2rtc_port:           options.go2rtc_port    || GO2RTC_PORT,
+    log_level:             options.log_level      || 'info',
+    onvif_username:        options.onvif_username || 'admin',
+    onvif_password:        options.onvif_password || 'admin',
+    neolink_rtsp_password: '***',
+    cameras
+  });
+});
+
+// ── GET /api/logs ────────────────────────────────────────────────────────────
+app.get('/api/logs', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit || '100', 10), MAX_LOG);
+  res.json(logBuffer.slice(0, limit));
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
@@ -342,9 +328,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`[dashboard] Reolink Bridge Dashboard running on port ${PORT}`);
 });
 
-// Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('[dashboard] Shutting down...');
+  console.log('[dashboard] Shutting down');
   if (mqttClient) mqttClient.end();
   process.exit(0);
 });

@@ -319,6 +319,74 @@ async function updateStreams () {
   }
 }
 
+async function updateConfig () {
+  try {
+    const cfg = await fetchJSON('/api/config');
+    const grid = qs('#config-grid');
+    if (!grid) return;
+
+    const rows = [
+      { label: 'Host Interface', value: cfg.host_interface },
+      { label: 'Neolink Port', value: cfg.neolink_port },
+      { label: 'go2rtc Port', value: cfg.go2rtc_port },
+      { label: 'Log Level', value: cfg.log_level },
+      { label: 'ONVIF Username', value: cfg.onvif_username },
+      { label: 'ONVIF Password', value: cfg.onvif_password ? '••••••' : '(nicht gesetzt)' }
+    ];
+
+    const rowsHtml = rows.map(r => `
+      <div class="cfg-row">
+        <span class="cfg-label">${escapeHtml(r.label)}</span>
+        <span class="cfg-value">${escapeHtml(String(r.value))}</span>
+      </div>`).join('');
+
+    const camsHtml = (cfg.cameras || []).map(cam => `
+      <div class="cfg-cam">
+        <div class="cfg-cam-name">&#x1F4F7; ${escapeHtml(cam.name)}</div>
+        <div class="cfg-cam-details">
+          <span>${escapeHtml(cam.address || cam.uid || 'UID-based')}</span>
+          <span>ONVIF :${cam.onvif_port}</span>
+          <span>HD: ${escapeHtml(cam.stream_high)}</span>
+          <span>SD: ${escapeHtml(cam.stream_low)}</span>
+        </div>
+      </div>`).join('');
+
+    grid.innerHTML = `
+      <div class="cfg-section">
+        <div class="cfg-section-title">Allgemein</div>
+        ${rowsHtml}
+      </div>
+      <div class="cfg-section">
+        <div class="cfg-section-title">Kameras (${(cfg.cameras || []).length})</div>
+        ${camsHtml || '<div class="empty-state">Keine Kameras konfiguriert.</div>'}
+      </div>`;
+  } catch (err) {
+    console.error('Config fetch error:', err);
+  }
+}
+
+async function updateLogs () {
+  try {
+    const logs = await fetchJSON('/api/logs?limit=50');
+    const panel = qs('#log-panel');
+    const count = qs('#log-count');
+    if (!panel) return;
+    if (count) count.textContent = logs.length;
+    if (logs.length === 0) {
+      panel.innerHTML = '<div class="empty-state">Keine Log-Einträge.</div>';
+      return;
+    }
+    panel.innerHTML = logs.map(e => `
+      <div class="log-line log-${escapeHtml(e.level)}">
+        <span class="log-time">${formatTime(e.time)}</span>
+        <span class="log-lvl">${escapeHtml(e.level.toUpperCase())}</span>
+        <span class="log-msg">${escapeHtml(e.msg)}</span>
+      </div>`).join('');
+  } catch (err) {
+    console.error('Log fetch error:', err);
+  }
+}
+
 function updateTimestamp () {
   const el = qs('#last-update');
   if (el) el.textContent = 'Updated: ' + new Date().toLocaleTimeString();
@@ -330,7 +398,9 @@ async function refresh () {
     updateStatus(),
     updateCameras(),
     updateMotion(),
-    updateStreams()
+    updateStreams(),
+    updateConfig(),
+    updateLogs()
   ]);
   updateTimestamp();
 }
