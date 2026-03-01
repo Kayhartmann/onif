@@ -47,6 +47,13 @@ function copyToClipboard(text, btn) {
     });
 }
 
+// ─── Copy button event delegation ────────────────────────────────────────────
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.copy-btn');
+    if (!btn) return;
+    copyToClipboard(btn.dataset.copy || '', btn);
+});
+
 // ─── Render helpers ───────────────────────────────────────────────────────────
 function renderServiceChip(id, name, running) {
     const el = qs(`#svc-${id}`);
@@ -85,6 +92,26 @@ function renderCameraCard(cam) {
         ? escapeHtml(cam.onvif_ip)
         : '<span class="waiting">waiting for lease…</span>';
 
+    // Build ONVIF URL row (only if IP is known)
+    const onvifUrlHtml = cam.onvif_url ? `
+        <div class="url-block">
+            <div class="url-row">
+                <span class="url-label">ONVIF</span>
+                <span class="url-text" title="${escapeHtml(cam.onvif_url)}">${escapeHtml(cam.onvif_url)}</span>
+                <button class="copy-btn" data-copy="${escapeHtml(cam.onvif_url)}">Copy</button>
+            </div>
+            <div class="url-row">
+                <span class="url-label">RTSP HD</span>
+                <span class="url-text" title="${escapeHtml(cam.streams.high)}">${escapeHtml(cam.streams.high)}</span>
+                <button class="copy-btn" data-copy="${escapeHtml(cam.streams.high)}">Copy</button>
+            </div>
+            <div class="url-row">
+                <span class="url-label">RTSP SD</span>
+                <span class="url-text" title="${escapeHtml(cam.streams.low)}">${escapeHtml(cam.streams.low)}</span>
+                <button class="copy-btn" data-copy="${escapeHtml(cam.streams.low)}">Copy</button>
+            </div>
+        </div>` : '';
+
     return `
         <div class="camera-card">
             <div class="camera-card-header">
@@ -119,6 +146,7 @@ function renderCameraCard(cam) {
                     <span class="camera-meta-value">${formatTime(cam.lastSeen)}</span>
                 </div>` : ''}
             </div>
+            ${onvifUrlHtml}
         </div>`;
 }
 

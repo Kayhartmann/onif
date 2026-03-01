@@ -372,6 +372,47 @@ body {
 .copy-btn:hover { border-color: var(--blue); color: var(--blue); }
 .copy-btn.copied { border-color: var(--green); color: var(--green); }
 
+/* ─── URL Block (camera card) ────────────────────────────────────────────── */
+.url-block {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.url-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.url-label {
+    min-width: 60px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.url-text {
+    flex: 1;
+    font-family: monospace;
+    font-size: 11px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 7px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: default;
+}
+
+.url-text:hover { border-color: var(--blue); }
+
 /* ─── Utilities ──────────────────────────────────────────────────────────────── */
 .loading-placeholder, .empty-state {
     color: var(--text-muted);

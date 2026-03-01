@@ -252,7 +252,7 @@ app.get('/api/cameras', async (req, res) => {
 
     const go2rtcStreams = await fetchGo2rtcStreams();
 
-    const result = await Promise.all(cameras.map(async (cam) => {
+    const result = await Promise.all(cameras.map(async (cam, index) => {
         const state = cameraState[cam.name] || { battery: null, motion: 'unknown', lastSeen: null };
 
         // Check if go2rtc has an active client for this stream
@@ -278,6 +278,8 @@ app.get('/api/cameras', async (req, res) => {
             motion: state.motion,
             lastSeen: state.lastSeen,
             streaming: hasClients,
+            onvif_port: 8001 + index,
+            onvif_url: actualIp ? `http://${actualIp}:${8001 + index}` : null,
             streams: {
                 high: `rtsp://[HOST]:${GO2RTC_PORT}/${cam.name}`,
                 low: `rtsp://[HOST]:${GO2RTC_PORT}/${cam.name}_sub`,
