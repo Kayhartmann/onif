@@ -67,7 +67,8 @@ cat > "${CONFIG_FILE}" << EOF
 # DO NOT EDIT - Changes will be overwritten on restart.
 # Configure cameras via the Home Assistant Add-on settings UI.
 
-bind = "0.0.0.0:${NEOLINK_PORT}"
+bind = "0.0.0.0"
+bind_port = ${NEOLINK_PORT}
 
 EOF
 
