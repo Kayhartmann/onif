@@ -25,10 +25,24 @@ if bashio::config.exists 'cameras'; then
     for i in $(seq 0 $((CAMERA_COUNT - 1))); do
         CAM_NAME=$(bashio::config "cameras[${i}].name")
 
-        bashio::log.info "  Adding go2rtc stream (neolink rtsp): ${CAM_NAME}"
+        # has_substream: false → use main stream as sub fallback (for battery cameras
+        # like Argus Pro that only expose a main stream via neolink/Baichuan)
+        HAS_SUB=$(bashio::config "cameras[${i}].has_substream" 2>/dev/null || echo "true")
+        if [ "${HAS_SUB}" = "null" ] || [ -z "${HAS_SUB}" ]; then
+            HAS_SUB="true"
+        fi
+
+        if [ "${HAS_SUB}" = "true" ]; then
+            SUB_PATH="${CAM_NAME}/sub"
+        else
+            SUB_PATH="${CAM_NAME}/main"
+            bashio::log.info "  Camera ${CAM_NAME}: no substream configured, using main as fallback"
+        fi
+
+        bashio::log.info "  Adding go2rtc stream: ${CAM_NAME}"
         STREAMS_YAML="${STREAMS_YAML}
   ${CAM_NAME}: rtsp://127.0.0.1:${NEOLINK_PORT}/${CAM_NAME}/main
-  ${CAM_NAME}_sub: rtsp://127.0.0.1:${NEOLINK_PORT}/${CAM_NAME}/sub"
+  ${CAM_NAME}_sub: rtsp://127.0.0.1:${NEOLINK_PORT}/${SUB_PATH}"
     done
 fi
 

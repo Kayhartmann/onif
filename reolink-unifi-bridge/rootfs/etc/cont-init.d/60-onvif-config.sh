@@ -54,6 +54,9 @@ function autoMac(name) {
     return ['02', hash.substr(0, 2), hash.substr(2, 2), hash.substr(4, 2), hash.substr(6, 2), hash.substr(8, 2)].join(':');
 }
 
+// Return value or default if undefined/null (prevents "undefined" strings in YAML)
+function val(v, def) { return (v !== undefined && v !== null) ? v : def; }
+
 let yaml = 'onvif:\n';
 
 cameras.forEach((camera, index) => {
@@ -73,6 +76,16 @@ cameras.forEach((camera, index) => {
     const highPath = '/' + name;
     const lowPath  = '/' + name + '_sub';
 
+    // Use sensible defaults when optional stream settings are not configured
+    const highW   = val(camera.stream_high_width,   1920);
+    const highH   = val(camera.stream_high_height,  1080);
+    const highFps = val(camera.stream_high_fps,       15);
+    const highBr  = val(camera.stream_high_bitrate, 4096);
+    const lowW    = val(camera.stream_low_width,     640);
+    const lowH    = val(camera.stream_low_height,    360);
+    const lowFps  = val(camera.stream_low_fps,         7);
+    const lowBr   = val(camera.stream_low_bitrate,   512);
+
     yaml += \`  - mac: \${mac}\n\`;
     yaml += \`    ports:\n\`;
     yaml += \`      server: \${onvifPort}\n\`;
@@ -82,17 +95,17 @@ cameras.forEach((camera, index) => {
     yaml += \`    uuid: \${uuids[name]}\n\`;
     yaml += \`    highQuality:\n\`;
     yaml += \`      rtsp: \${highPath}\n\`;
-    yaml += \`      width: \${camera.stream_high_width}\n\`;
-    yaml += \`      height: \${camera.stream_high_height}\n\`;
-    yaml += \`      framerate: \${camera.stream_high_fps}\n\`;
-    yaml += \`      bitrate: \${camera.stream_high_bitrate || 4096}\n\`;
+    yaml += \`      width: \${highW}\n\`;
+    yaml += \`      height: \${highH}\n\`;
+    yaml += \`      framerate: \${highFps}\n\`;
+    yaml += \`      bitrate: \${highBr}\n\`;
     yaml += \`      quality: 4\n\`;
     yaml += \`    lowQuality:\n\`;
     yaml += \`      rtsp: \${lowPath}\n\`;
-    yaml += \`      width: \${camera.stream_low_width}\n\`;
-    yaml += \`      height: \${camera.stream_low_height}\n\`;
-    yaml += \`      framerate: \${camera.stream_low_fps}\n\`;
-    yaml += \`      bitrate: \${camera.stream_low_bitrate || 512}\n\`;
+    yaml += \`      width: \${lowW}\n\`;
+    yaml += \`      height: \${lowH}\n\`;
+    yaml += \`      framerate: \${lowFps}\n\`;
+    yaml += \`      bitrate: \${lowBr}\n\`;
     yaml += \`      quality: 1\n\`;
     yaml += \`    target:\n\`;
     yaml += \`      hostname: 127.0.0.1\n\`;
