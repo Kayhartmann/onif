@@ -89,12 +89,18 @@ Dashboard      →  Port 8099 (Ingress)  →  Status-Übersicht
 - `pause on client` — Stream pausiert ohne aktiven Empfänger
 - `pause on motion` — Stream pausiert bis Bewegung erkannt wird
 
-#### Web-Dashboard (Port 8099)
-- Echtzeit-Servicestatus aller Komponenten
-- Kameraliste mit Status (Bewegung, Batterie)
-- RTSP-URLs mit Kopier-Funktion
+#### Web-Dashboard (Port 8099 / Ingress)
+- Echtzeit-Servicestatus aller Komponenten mit tatsächlichen Ports
+- Host-IP-Anzeige im Header
+- Kameraliste mit ONVIF-URL, RTSP-URLs und Kopier-Funktion
+- MQTT-Status: Quelle (HA-Supervisor / manuell), Host, Port, SSL
+- Konfigurationsübersicht und System-Log
 - Bewegungsprotokoll (letzte 50 Ereignisse)
 - Auto-Refresh alle 10 Sekunden
+
+#### Automatische Port-Auswahl
+- Alle Ports werden beim Start geprüft; bei Konflikt wird automatisch der nächste freie Port gewählt
+- Die tatsächlichen Ports werden in `/tmp/actual-ports.json` gespeichert und im Dashboard angezeigt
 
 ### Ports & Dienste
 
@@ -103,17 +109,22 @@ Dashboard      →  Port 8099 (Ingress)  →  Status-Übersicht
 | 8554 | Neolink | intern | RTSP von Reolink-Kamera |
 | 18554 | go2rtc | extern | RTSP-Proxy für Clients |
 | 8001–8009 | ONVIF-Server | extern | Virtuelle ONVIF-Kameras |
-| 1883 | Mosquitto | intern (localhost) | MQTT-Broker |
 | 1984 | go2rtc API | intern (localhost) | Management-API |
 | 8099 | Dashboard | Ingress | Web-Statusseite |
+
+> **MQTT:** Das Add-on verwendet den MQTT-Broker des Home Assistant Supervisors (z. B. Mosquitto Add-on) oder einen manuell konfigurierten externen Broker. Es wird kein eigener Broker mitgeliefert.
 
 ### Konfiguration
 
 ```yaml
 host_interface: eth0          # Netzwerkinterface des Hosts (z. B. eth0, ens3)
-neolink_port: 8554            # Neolink RTSP-Port
-go2rtc_port: 18554            # go2rtc RTSP-Port
+neolink_port: 8554            # Neolink RTSP-Port (Startwert; wird automatisch angepasst wenn belegt)
+go2rtc_port: 18554            # go2rtc RTSP-Port (Startwert; wird automatisch angepasst wenn belegt)
 log_level: info               # Loglevel: error | warn | info | debug
+
+# MQTT-Broker (optional — Standard: automatisch via HA Supervisor)
+# mqtt_host: "192.168.1.50"  # Manueller Broker-Host (leer lassen für HA-Supervisor-Auto-Discovery)
+# mqtt_port: 1883             # Manueller Broker-Port (Standard: 1883)
 
 cameras:
   - name: Eingang             # Eindeutiger Name (alphanumerisch + _)
@@ -143,6 +154,8 @@ cameras:
     stream_low_fps: 7
     stream_low_bitrate: 512
 ```
+
+> **MQTT-Konfiguration:** Standardmäßig wird der MQTT-Broker automatisch über den HA Supervisor erkannt (Mosquitto Add-on). Falls ein externer Broker verwendet wird, können `mqtt_host` und `mqtt_port` gesetzt werden. Bewegungserkennung und Batteriestand werden nur aktiviert, wenn ein Broker verfügbar ist.
 
 ### Beispiel-Einrichtung (2 Kameras)
 
@@ -368,8 +381,11 @@ UniFi Protect erwartet, dass jede Kamera eine **eigene IP-Adresse** im Netzwerk 
 **UniFi Protect findet Kamera nicht**
 → ONVIF-IP muss im gleichen Subnetz wie der HA-Host und UniFi sein
 
-**RTSP-Stream nicht verfügbar**
-→ Kamera-IP und Zugangsdaten in der Konfiguration prüfen; Dashboard auf Port 8099 öffnen
+**RTSP-Stream nicht verfügbar / Schwarzes Bild**
+→ Kamera-IP und Zugangsdaten prüfen. Dashboard öffnen (HA → Add-on → Öffnen) und Neolink/go2rtc-Status prüfen. Logs zeigen ob Kamera verbunden ist.
+
+**Bewegungserkennung funktioniert nicht**
+→ Mosquitto Add-on installieren (oder `mqtt_host` setzen) und Add-on neu starten. MQTT-Status im Dashboard prüfen.
 
 **Kamera nach Neustart nicht mehr in UniFi Protect**
 → UUID-Persistenz ist aktiv — UUIDs werden in `/data/uuids.json` gespeichert. Nur bei vollständigem Datenverlust muss die Kamera neu adoptiert werden.

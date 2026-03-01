@@ -16,7 +16,6 @@ else
     NEOLINK_PORT=$(bashio::config 'neolink_port')
 fi
 
-NEOLINK_RTSP_PASSWORD=$(bashio::config 'neolink_rtsp_password')
 CONFIG_FILE="/data/neolink/neolink.toml"
 
 mkdir -p /data/neolink
@@ -69,11 +68,6 @@ cat > "${CONFIG_FILE}" << EOF
 # Configure cameras via the Home Assistant Add-on settings UI.
 
 bind = "0.0.0.0:${NEOLINK_PORT}"
-permitted_users = ["admin"]
-
-[[users]]
-name = "admin"
-password = "${NEOLINK_RTSP_PASSWORD}"
 
 EOF
 
