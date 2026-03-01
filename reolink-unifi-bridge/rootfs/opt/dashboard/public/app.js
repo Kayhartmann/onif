@@ -55,11 +55,75 @@ document.addEventListener('click', (e) => {
 });
 
 // ─── Render helpers ───────────────────────────────────────────────────────────
-function renderServiceChip (id, name, running) {
+function renderServiceChip (id, name, running, port) {
   const el = qs(`#svc-${id}`);
   if (!el) return;
   el.className = `service-chip ${running ? 'running' : 'stopped'}`;
-  el.innerHTML = `<span class="svc-dot"></span><span class="svc-label">${name}</span>`;
+  const portHtml = port ? `<span class="svc-port">:${port}</span>` : '';
+  el.innerHTML = `<span class="svc-dot"></span><span class="svc-label">${name}${portHtml}</span>`;
+}
+
+function renderServiceDetails (services) {
+  const grid = qs('#service-details-grid');
+  if (!grid) return;
+
+  const items = [
+    {
+      id: 'neolink',
+      name: 'Neolink',
+      desc: 'Reolink RTSP Bridge',
+      running: services.neolink.running,
+      details: [`RTSP Port: ${services.neolink.port}`]
+    },
+    {
+      id: 'go2rtc',
+      name: 'go2rtc',
+      desc: 'RTSP Proxy & Transcoder',
+      running: services.go2rtc.running,
+      details: [
+        `RTSP Port: ${services.go2rtc.port}`,
+        `API Port: ${services.go2rtc.api_port} ${services.go2rtc.api_running ? '✓' : '✗'}`
+      ]
+    },
+    {
+      id: 'onvif',
+      name: 'ONVIF Server',
+      desc: 'Virtuelle ONVIF Kameras',
+      running: services.onvif.running,
+      details: [`Ports ab: ${services.onvif.port}`]
+    },
+    {
+      id: 'mqtt',
+      name: 'MQTT Broker',
+      desc: 'HA MQTT (Motion/Battery)',
+      running: services.mqtt.running,
+      details: ['via Home Assistant']
+    }
+  ];
+
+  grid.innerHTML = items.map(item => `
+    <div class="service-detail-card ${item.running ? 'running' : 'stopped'}">
+      <div class="sdc-header">
+        <span class="sdc-dot"></span>
+        <span class="sdc-name">${item.name}</span>
+        <span class="sdc-status">${item.running ? 'Online' : 'Offline'}</span>
+      </div>
+      <div class="sdc-desc">${item.desc}</div>
+      ${item.details.map(d => `<div class="sdc-detail">${d}</div>`).join('')}
+    </div>
+  `).join('');
+}
+
+function renderCredentials (credentials) {
+  if (!credentials) return;
+  const usernameEl = qs('#cred-username');
+  const passwordEl = qs('#cred-password');
+  const copyUser = qs('#copy-username');
+  const copyPass = qs('#copy-password');
+  if (usernameEl) usernameEl.textContent = credentials.username || 'admin';
+  if (passwordEl) passwordEl.textContent = credentials.password || 'admin';
+  if (copyUser) copyUser.dataset.copy = credentials.username || 'admin';
+  if (copyPass) copyPass.dataset.copy = credentials.password || 'admin';
 }
 
 function renderBatteryBar (level) {
@@ -200,10 +264,12 @@ async function updateStatus () {
   try {
     const data = await fetchJSON('/api/status');
     const s = data.services;
-    renderServiceChip('mqtt', 'MQTT Broker', s.mqtt.running);
-    renderServiceChip('neolink', 'Neolink', s.neolink.running);
-    renderServiceChip('go2rtc', 'go2rtc', s.go2rtc.running);
-    renderServiceChip('onvif', 'ONVIF', s.onvif.running);
+    renderServiceChip('mqtt', 'MQTT', s.mqtt.running);
+    renderServiceChip('neolink', 'Neolink', s.neolink.running, s.neolink.port);
+    renderServiceChip('go2rtc', 'go2rtc', s.go2rtc.running, s.go2rtc.port);
+    renderServiceChip('onvif', 'ONVIF', s.onvif.running, s.onvif.port);
+    renderServiceDetails(s);
+    renderCredentials(data.onvif_credentials);
   } catch (err) {
     console.error('Status fetch error:', err);
   }

@@ -40,9 +40,40 @@
             </div>
         </section>
 
+        <!-- UniFi Protect Credentials -->
+        <section class="credentials-card" id="credentials-section">
+            <div class="credentials-header">
+                <span class="credentials-icon">&#x1F512;</span>
+                <div>
+                    <div class="credentials-title">UniFi Protect – Zugangsdaten</div>
+                    <div class="credentials-hint">Diese Zugangsdaten beim Hinzufügen der Kameras in UniFi Protect eingeben</div>
+                </div>
+            </div>
+            <div class="credentials-fields">
+                <div class="cred-row">
+                    <span class="cred-label">Benutzername</span>
+                    <span class="cred-value" id="cred-username">–</span>
+                    <button class="copy-btn" id="copy-username">Copy</button>
+                </div>
+                <div class="cred-row">
+                    <span class="cred-label">Passwort</span>
+                    <span class="cred-value" id="cred-password">–</span>
+                    <button class="copy-btn" id="copy-password">Copy</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Service Details -->
+        <section class="section service-details-section" id="service-details">
+            <h2 class="section-title">Service Details</h2>
+            <div class="service-details-grid" id="service-details-grid">
+                <div class="loading-placeholder">Laden...</div>
+            </div>
+        </section>
+
         <!-- Camera Cards Grid -->
         <section class="section">
-            <h2 class="section-title">Cameras</h2>
+            <h2 class="section-title">Kameras</h2>
             <div id="cameras-grid" class="cameras-grid">
                 <div class="loading-placeholder">Loading cameras...</div>
             </div>

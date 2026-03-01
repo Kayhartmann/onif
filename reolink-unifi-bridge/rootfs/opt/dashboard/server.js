@@ -10,6 +10,7 @@ const mqtt = require('mqtt');
 const PORT = parseInt(process.env.DASHBOARD_PORT || '8099', 10);
 const NEOLINK_PORT = parseInt(process.env.NEOLINK_PORT || '8554', 10);
 const GO2RTC_PORT = parseInt(process.env.GO2RTC_PORT || '18554', 10);
+const GO2RTC_API_PORT = 1984;
 const OPTIONS_FILE = process.env.OPTIONS_FILE || '/data/options.json';
 const IP_MAP_FILE = '/tmp/camera-ips.json';
 
@@ -246,13 +247,24 @@ app.get('/api/status', async (req, res) => {
     onvifUp = await checkPort(actualIp, 8001);
   }
 
+  // Also check go2rtc API
+  const go2rtcApiUp = await checkPort('127.0.0.1', GO2RTC_API_PORT);
+
+  // Load ONVIF credentials from options
+  const onvifUsername = options.onvif_username || 'admin';
+  const onvifPassword = options.onvif_password || 'admin';
+
   res.json({
     services: {
       mqtt: { running: mqttConnected },
       neolink: { running: neolinkUp, port: NEOLINK_PORT },
-      go2rtc: { running: go2rtcUp, port: GO2RTC_PORT },
+      go2rtc: { running: go2rtcUp, port: GO2RTC_PORT, api_port: GO2RTC_API_PORT, api_running: go2rtcApiUp },
       onvif: { running: onvifUp, port: 8001 },
       dashboard: { running: true, port: PORT }
+    },
+    onvif_credentials: {
+      username: onvifUsername,
+      password: onvifPassword
     },
     timestamp: new Date().toISOString()
   });

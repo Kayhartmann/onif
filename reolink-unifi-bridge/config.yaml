@@ -1,6 +1,6 @@
 name: "Reolink UniFi Bridge"
 description: "Verbindet Reolink Kameras mit UniFi Protect über ONVIF. Enthält Neolink, go2rtc und ONVIF-Server in einem Add-on."
-version: "1.0.12"
+version: "1.0.13"
 slug: "reolink_unifi_bridge"
 url: "https://github.com/Kayhartmann/onif"
 startup: services
@@ -28,6 +28,8 @@ options:
   go2rtc_port: 18554
   log_level: "info"
   neolink_rtsp_password: "admin"
+  onvif_username: "admin"
+  onvif_password: "admin"
   cameras:
     - name: "MeineKamera"
       address: "192.168.1.100"
@@ -49,6 +51,8 @@ schema:
   go2rtc_port: int
   log_level: list(error|warn|info|debug)
   neolink_rtsp_password: str
+  onvif_username: str
+  onvif_password: str
   cameras:
     - name: str
       address: str?

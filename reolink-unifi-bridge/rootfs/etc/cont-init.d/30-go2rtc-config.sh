@@ -9,7 +9,14 @@ bashio::log.info "Generating go2rtc configuration..."
 
 NEOLINK_PORT=$(bashio::config 'neolink_port')
 GO2RTC_PORT=$(bashio::config 'go2rtc_port')
+NEOLINK_RTSP_PASSWORD=$(bashio::config 'neolink_rtsp_password')
 CONFIG_FILE="/data/go2rtc/go2rtc.yaml"
+
+if [ -n "${NEOLINK_RTSP_PASSWORD}" ]; then
+    RTSP_AUTH="admin:${NEOLINK_RTSP_PASSWORD}@"
+else
+    RTSP_AUTH=""
+fi
 
 mkdir -p /data/go2rtc
 
@@ -22,8 +29,8 @@ if bashio::config.exists 'cameras'; then
         CAM_NAME=$(bashio::config "cameras[${i}].name")
         bashio::log.info "  Adding go2rtc stream: ${CAM_NAME}"
         STREAMS_YAML="${STREAMS_YAML}
-  ${CAM_NAME}: rtsp://127.0.0.1:${NEOLINK_PORT}/${CAM_NAME}/main
-  ${CAM_NAME}_sub: rtsp://127.0.0.1:${NEOLINK_PORT}/${CAM_NAME}/sub"
+  ${CAM_NAME}: rtsp://${RTSP_AUTH}127.0.0.1:${NEOLINK_PORT}/${CAM_NAME}/main
+  ${CAM_NAME}_sub: rtsp://${RTSP_AUTH}127.0.0.1:${NEOLINK_PORT}/${CAM_NAME}/sub"
     done
 fi
 
