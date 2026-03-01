@@ -7,8 +7,10 @@
 bashio::log.info "Starting Reolink Bridge Dashboard on port 8099..."
 
 # Export config values as environment variables for the Node.js app
-export NEOLINK_PORT=$(bashio::config 'neolink_port')
-export GO2RTC_PORT=$(bashio::config 'go2rtc_port')
+NEOLINK_PORT=$(bashio::config 'neolink_port')
+export NEOLINK_PORT
+GO2RTC_PORT=$(bashio::config 'go2rtc_port')
+export GO2RTC_PORT
 export DASHBOARD_PORT=8099
 export MQTT_HOST="127.0.0.1"
 export MQTT_PORT=1883

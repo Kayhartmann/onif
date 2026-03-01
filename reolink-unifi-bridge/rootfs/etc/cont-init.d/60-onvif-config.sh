@@ -18,8 +18,6 @@ bashio::log.info "Generating ONVIF server configuration (YAML)..."
 
 GO2RTC_PORT=$(bashio::config 'go2rtc_port')
 CONFIG_FILE="/data/onvif.yaml"
-UUID_FILE="/data/uuids.json"
-CAMERA_COUNT=$(bashio::config 'cameras | length')
 
 # ONVIF ports start at 8001 and increment per camera
 ONVIF_BASE_PORT=8001
