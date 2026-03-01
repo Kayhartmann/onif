@@ -1,3 +1,6 @@
 get-logs.sh
 get-logs.py
 *.log
+
+.claude/
+hassio-onvif-server/
