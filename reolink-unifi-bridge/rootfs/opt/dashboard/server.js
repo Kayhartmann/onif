@@ -10,8 +10,6 @@ const mqtt = require('mqtt');
 const PORT = parseInt(process.env.DASHBOARD_PORT || '8099', 10);
 const NEOLINK_PORT = parseInt(process.env.NEOLINK_PORT || '8554', 10);
 const GO2RTC_PORT = parseInt(process.env.GO2RTC_PORT || '18554', 10);
-const MQTT_HOST = process.env.MQTT_HOST || '127.0.0.1';
-const MQTT_PORT = parseInt(process.env.MQTT_PORT || '1883', 10);
 const OPTIONS_FILE = process.env.OPTIONS_FILE || '/data/options.json';
 const IP_MAP_FILE = '/tmp/camera-ips.json';
 
@@ -35,6 +33,16 @@ function loadOptions() {
 }
 
 let options = loadOptions();
+
+// ─── Load MQTT config (written by 10-mqtt-config.sh from HA supervisor) ──────
+function loadMqttConfig() {
+    try {
+        const cfg = JSON.parse(fs.readFileSync('/tmp/mqtt.json', 'utf8'));
+        return cfg.available === false ? null : cfg;
+    } catch {
+        return null;
+    }
+}
 
 // ─── Load IP map (written by 50-macvlan-setup.sh after DHCP/static assignment) ─
 function loadIpMap() {
@@ -93,20 +101,29 @@ async function fetchGo2rtcStreams() {
 
 // ─── MQTT Client ──────────────────────────────────────────────────────────────
 function startMqttClient() {
-    const client = mqtt.connect(`mqtt://${MQTT_HOST}:${MQTT_PORT}`, {
+    const mqttCfg = loadMqttConfig();
+    if (!mqttCfg) {
+        console.log('[dashboard] MQTT not available – motion/battery features disabled');
+        return null;
+    }
+
+    const protocol = mqttCfg.ssl ? 'mqtts' : 'mqtt';
+    const brokerUrl = `${protocol}://${mqttCfg.host}:${mqttCfg.port}`;
+    console.log(`[dashboard] Connecting to MQTT broker: ${brokerUrl}`);
+
+    const client = mqtt.connect(brokerUrl, {
         clientId: 'reolink-dashboard',
+        username: mqttCfg.username || undefined,
+        password: mqttCfg.password || undefined,
         reconnectPeriod: 5000,
         connectTimeout: 10000,
     });
 
     client.on('connect', () => {
-        console.log('[dashboard] MQTT connected');
-
-        // Subscribe to all neolink topics
+        console.log(`[dashboard] MQTT connected to ${mqttCfg.host}:${mqttCfg.port}`);
         client.subscribe('neolink/+/status/motion');
         client.subscribe('neolink/+/status/battery_level');
 
-        // Publish HA auto-discovery for each camera
         options = loadOptions();
         const cameras = options.cameras || [];
         cameras.forEach((cam) => {
@@ -117,14 +134,12 @@ function startMqttClient() {
     client.on('message', (topic, message) => {
         const payload = message.toString();
 
-        // Motion: neolink/{camera}/status/motion
         const motionMatch = topic.match(/^neolink\/(.+)\/status\/motion$/);
         if (motionMatch) {
             const camName = motionMatch[1];
             if (!cameraState[camName]) cameraState[camName] = { battery: null, motion: 'unknown', lastSeen: null };
             cameraState[camName].motion = payload === 'on' ? 'on' : 'off';
             cameraState[camName].lastSeen = new Date().toISOString();
-
             if (payload === 'on') {
                 motionEvents.unshift({ time: new Date().toISOString(), camera: camName, state: 'on' });
                 if (motionEvents.length > MAX_MOTION_EVENTS) motionEvents.pop();
@@ -132,7 +147,6 @@ function startMqttClient() {
             return;
         }
 
-        // Battery: neolink/{camera}/status/battery_level
         const batteryMatch = topic.match(/^neolink\/(.+)\/status\/battery_level$/);
         if (batteryMatch) {
             const camName = batteryMatch[1];
@@ -215,14 +229,15 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ── GET /api/status ─────────────────────────────────────────────────────────
 app.get('/api/status', async (req, res) => {
-    const [mosquittoUp, neolinkUp, go2rtcUp] = await Promise.all([
-        checkPort('127.0.0.1', MQTT_PORT),
+    const [neolinkUp, go2rtcUp] = await Promise.all([
         checkPort('127.0.0.1', NEOLINK_PORT),
         checkPort('127.0.0.1', GO2RTC_PORT),
     ]);
 
+    // MQTT: check live client connection state
+    const mqttConnected = mqttClient !== null && mqttClient.connected === true;
+
     // ONVIF: check if port 8001 (first camera's ONVIF port) is reachable
-    // daniela-hase/onvif-server assigns ports starting at 8001 per camera
     const cameras = (options.cameras || []);
     const ipMap = loadIpMap();
     let onvifUp = false;
@@ -234,11 +249,11 @@ app.get('/api/status', async (req, res) => {
 
     res.json({
         services: {
-            mosquitto: { running: mosquittoUp, port: MQTT_PORT },
-            neolink: { running: neolinkUp, port: NEOLINK_PORT },
-            go2rtc: { running: go2rtcUp, port: GO2RTC_PORT },
-            onvif: { running: onvifUp, port: 8001 },
-            dashboard: { running: true, port: PORT },
+            mqtt:      { running: mqttConnected },
+            neolink:   { running: neolinkUp,  port: NEOLINK_PORT },
+            go2rtc:    { running: go2rtcUp,   port: GO2RTC_PORT },
+            onvif:     { running: onvifUp,    port: 8001 },
+            dashboard: { running: true,       port: PORT },
         },
         timestamp: new Date().toISOString(),
     });
@@ -319,6 +334,6 @@ app.listen(PORT, '0.0.0.0', () => {
 // Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('[dashboard] Shutting down...');
-    mqttClient.end();
+    if (mqttClient) mqttClient.end();
     process.exit(0);
 });

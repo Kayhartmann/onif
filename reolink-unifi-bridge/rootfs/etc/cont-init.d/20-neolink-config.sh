@@ -63,11 +63,21 @@ EOF
 
 # Add MQTT broker section if needed
 if bashio::var.true "${MQTT_ENABLED}"; then
-    cat >> "${CONFIG_FILE}" << 'EOF'
+    # Source MQTT credentials written by 10-mqtt-config.sh
+    MQTT_HOST="127.0.0.1"
+    MQTT_PORT="1883"
+    MQTT_USER=""
+    MQTT_PASS=""
+    if [ -f /tmp/mqtt.env ]; then
+        # shellcheck source=/dev/null
+        . /tmp/mqtt.env
+    fi
+
+    cat >> "${CONFIG_FILE}" << EOF
 [mqtt]
-broker_addr = "127.0.0.1"
-port = 1883
-credentials = {username = "", password = ""}
+broker_addr = "${MQTT_HOST}"
+port = ${MQTT_PORT}
+credentials = {username = "${MQTT_USER}", password = "${MQTT_PASS}"}
 
 EOF
 fi

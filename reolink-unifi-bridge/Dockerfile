@@ -14,8 +14,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs \
     npm \
-    mosquitto \
-    mosquitto-clients \
     curl \
     wget \
     unzip \
@@ -89,15 +87,6 @@ RUN find /etc/cont-init.d -name "*.sh" -exec chmod +x {} \; \
     && chmod +x /usr/bin/wait-for-port \
     && chmod +x /usr/bin/udhcpc-onvif-script
 
-# Configure mosquitto for local-only listening.
-# Run mosquitto directly with local.conf to avoid pid_file conflicts
-# with the distro default mosquitto.conf.
-RUN mkdir -p /etc/mosquitto/conf.d \
-    && printf 'listener 1883 127.0.0.1\nallow_anonymous true\npid_file /tmp/mosquitto.pid\n' \
-       > /etc/mosquitto/conf.d/local.conf \
-    && mkdir -p /var/lib/mosquitto \
-    && chown mosquitto:mosquitto /var/lib/mosquitto 2>/dev/null || true
-
 # Create data directories
 RUN mkdir -p /data/neolink /data/go2rtc /data/logs
 
@@ -109,4 +98,4 @@ LABEL \
     io.hass.description="Connects Reolink cameras to UniFi Protect via ONVIF" \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
-    io.hass.version="1.0.10"
+    io.hass.version="1.0.12"

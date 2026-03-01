@@ -1,41 +1,49 @@
 #!/usr/bin/with-contenv bashio
 # ==============================================================================
 # 10-mqtt-config.sh
-# Configures Mosquitto MQTT broker for internal use
+# Reads MQTT broker credentials from the HA supervisor (services: mqtt:need)
+# and writes them to /tmp/mqtt.json (for Node.js) and /tmp/mqtt.env (for bash).
 # ==============================================================================
 set -e
 
-bashio::log.info "Configuring internal MQTT broker (Mosquitto)..."
+bashio::log.info "Reading MQTT broker credentials from Home Assistant supervisor..."
 
-# Ensure mosquitto directories exist
-mkdir -p /var/lib/mosquitto /etc/mosquitto/conf.d
+# Check if MQTT service is available
+if ! bashio::services.mqtt; then
+    bashio::log.warning "No MQTT broker available – MQTT features (motion, battery) will be disabled."
+    printf '{"available":false}' > /tmp/mqtt.json
+    printf 'MQTT_AVAILABLE=false\n' > /tmp/mqtt.env
+    exit 0
+fi
 
-# Write main mosquitto config
-cat > /etc/mosquitto/mosquitto.conf << 'EOF'
-# Reolink UniFi Bridge - Internal Mosquitto Config
-pid_file /var/run/mosquitto.pid
-persistence true
-persistence_location /var/lib/mosquitto/
+MQTT_HOST=$(bashio::services.mqtt host)
+MQTT_PORT=$(bashio::services.mqtt port)
+MQTT_USER=$(bashio::services.mqtt username)
+MQTT_PASS=$(bashio::services.mqtt password)
+MQTT_SSL=$(bashio::services.mqtt ssl)
 
-log_dest stdout
-log_type error
-log_type warning
-log_type notice
-log_type information
-log_timestamp true
+bashio::log.info "MQTT broker: ${MQTT_HOST}:${MQTT_PORT} ssl=${MQTT_SSL}"
 
-include_dir /etc/mosquitto/conf.d
+# JSON for Node.js services
+cat > /tmp/mqtt.json << EOF
+{
+  "available": true,
+  "host": "${MQTT_HOST}",
+  "port": ${MQTT_PORT},
+  "username": "${MQTT_USER}",
+  "password": "${MQTT_PASS}",
+  "ssl": ${MQTT_SSL}
+}
 EOF
 
-# Write listener config
-cat > /etc/mosquitto/conf.d/local.conf << 'EOF'
-# Only listen on localhost - not exposed externally
-listener 1883 127.0.0.1
-allow_anonymous true
+# Shell env-vars for bash scripts
+cat > /tmp/mqtt.env << EOF
+MQTT_AVAILABLE=true
+MQTT_HOST="${MQTT_HOST}"
+MQTT_PORT="${MQTT_PORT}"
+MQTT_USER="${MQTT_USER}"
+MQTT_PASS="${MQTT_PASS}"
+MQTT_SSL="${MQTT_SSL}"
 EOF
 
-# Ensure proper ownership
-chown -R mosquitto:mosquitto /var/lib/mosquitto 2>/dev/null || true
-chown mosquitto:mosquitto /etc/mosquitto/mosquitto.conf 2>/dev/null || true
-
-bashio::log.info "MQTT broker configured on 127.0.0.1:1883"
+bashio::log.info "MQTT credentials written to /tmp/mqtt.json"

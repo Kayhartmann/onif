@@ -191,7 +191,7 @@ async function updateStatus() {
     try {
         const data = await fetchJSON('/api/status');
         const s = data.services;
-        renderServiceChip('mosquitto', 'Mosquitto', s.mosquitto.running);
+        renderServiceChip('mqtt', 'MQTT Broker', s.mqtt.running);
         renderServiceChip('neolink', 'Neolink', s.neolink.running);
         renderServiceChip('go2rtc', 'go2rtc', s.go2rtc.running);
         renderServiceChip('onvif', 'ONVIF', s.onvif.running);
