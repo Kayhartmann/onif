@@ -45,6 +45,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set lowercase owner
+        id: lower
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Set up QEMU for cross-arch builds
         uses: docker/setup-qemu-action@v3
 
@@ -65,7 +69,7 @@ jobs:
           context: ./reolink-unifi-bridge
           platforms: ${{ matrix.platform }}
           push: ${{ github.event_name == 'push' }}
-          tags: ${{ env.REGISTRY }}/${{ github.repository_owner }}/reolink-unifi-bridge-${{ matrix.arch }}:latest
+          tags: ${{ env.REGISTRY }}/${{ steps.lower.outputs.owner }}/reolink-unifi-bridge-${{ matrix.arch }}:latest
           build-args: |
             BUILD_FROM=${{ matrix.base }}
             BUILD_ARCH=${{ matrix.arch }}
