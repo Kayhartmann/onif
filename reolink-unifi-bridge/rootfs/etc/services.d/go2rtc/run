@@ -1,16 +1,20 @@
 #!/usr/bin/with-contenv bashio
 # ==============================================================================
 # Service: go2rtc (RTSP Proxy / Restreamer)
+# Depends on: neolink (must be ready before go2rtc starts pulling streams)
 # ==============================================================================
-
-# go2rtc connects directly to cameras via reolink:// protocol
-# (no dependency on neolink RTSP server anymore)
-# neolink runs independently for optional MQTT motion detection
 
 CONFIG_FILE="/data/go2rtc/go2rtc.yaml"
 
 # Kill any stale go2rtc from a previous run (host_network: port stays bound after restart)
 pkill -x go2rtc 2>/dev/null && sleep 1 || true
+
+# Wait for neolink RTSP to be ready before starting go2rtc
+NEOLINK_PORT=$(jq -r '.neolink' /tmp/actual-ports.json 2>/dev/null || echo "8554")
+bashio::log.info "Waiting for Neolink RTSP to be ready on port ${NEOLINK_PORT}..."
+wait-for-port 127.0.0.1 "${NEOLINK_PORT}" 60 || {
+    bashio::log.warning "Neolink not ready after 60s, starting go2rtc anyway..."
+}
 
 bashio::log.info "Starting go2rtc..."
 
