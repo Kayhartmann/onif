@@ -31,6 +31,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gstreamer1.0-plugins-bad \
     gstreamer1.0-libav \
     libgstrtspserver-1.0-0 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libcairo2 \
+    libfontconfig1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -99,4 +103,4 @@ LABEL \
     io.hass.description="Connects Reolink cameras to UniFi Protect via ONVIF" \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
-    io.hass.version="1.0.23"
+    io.hass.version="1.0.24"
