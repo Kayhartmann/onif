@@ -34,7 +34,7 @@ Oder manuell:
 
 ```
 Reolink-Kamera
-    │  (Baichuan-Protokoll)
+    │  (Baichuan-Protokoll, Port 9000)
     ▼
 ┌─────────────┐
 │   Neolink   │  Port 8554  →  RTSP-Stream
@@ -53,8 +53,8 @@ Reolink-Kamera
     ▼
 UniFi Protect  ←  adoptiert Kamera als ONVIF-Gerät
 
-MQTT (intern)  →  Home Assistant: Bewegung, Batterie, Vorschau
-Dashboard      →  Port 8099 (Ingress)  →  Status-Übersicht
+MQTT (optional) →  Home Assistant: Bewegung, Batterie, Vorschau
+Dashboard       →  Port 8099 (Ingress)  →  Status-Übersicht
 ```
 
 ### Funktionen
@@ -67,7 +67,8 @@ Dashboard      →  Port 8099 (Ingress)  →  Status-Übersicht
 
 #### RTSP-Streaming
 - Dual-Stream: Main (hohe Qualität) + Sub (niedrige Qualität)
-- Stream-Stabilisierung via **go2rtc** (multiplexed)
+- Stream-Stabilisierung via **go2rtc** (multiplexed, 30 s Timeout für Kamera-Aufwachzeit)
+- `has_substream: false` für Kameras ohne Sub-Stream (z. B. Akku-Kameras) — go2rtc nutzt dann Main als Fallback
 - Direkter RTSP-Zugriff auf Port 8554 (Neolink) oder 18554 (go2rtc)
 
 #### ONVIF-Integration
@@ -76,7 +77,12 @@ Dashboard      →  Port 8099 (Ingress)  →  Status-Übersicht
 - UUID-Persistenz (`uuids.json`) — UniFi Protect behält adoptierte Kameras nach Neustart
 - Ports pro Kamera: `8001+n` (ONVIF), `8101+n` (RTSP), `8201+n` (Snapshot)
 
-#### Bewegungserkennung & MQTT
+#### Aufnahme-Steuerung
+- `continuous_recording: true` — Setzt die Kamera auf 24/7-Daueraufnahme beim Start des Add-ons
+- `continuous_recording: false` — Setzt die Kamera auf Bewegungsgesteuerte Aufnahme
+- Funktioniert über die Reolink HTTP-API (Port 80); bei fehlendem Netzwerkzugriff erscheint ein Hinweis im Log
+
+#### Bewegungserkennung & MQTT (optional)
 - Echtzeit-Bewegungserkennung → MQTT-Topics
 - Batteriestand-Monitoring (Akku-Kameras)
 - Vorschaubilder bei Bewegung
@@ -84,10 +90,10 @@ Dashboard      →  Port 8099 (Ingress)  →  Status-Übersicht
   - `binary_sensor.<name>_motion`
   - `sensor.<name>_battery`
 
-#### Akku-Kamera-Optimierungen
-- `idle_disconnect` — Verbindungstrennung im Ruhezustand
-- `pause on client` — Stream pausiert ohne aktiven Empfänger
-- `pause on motion` — Stream pausiert bis Bewegung erkannt wird
+#### Stabilität & Ressourcen-Management
+- **Neolink Memory-Watchdog**: automatischer Neustart wenn RAM > 600 MB (bekannter Neolink-Speicherleck wird so verhindert)
+- **go2rtc Timeout 30 s**: toleriert länger schlafende Akku-Kameras ohne sofortigen Verbindungsabbruch
+- **Automatische Port-Auswahl**: alle Ports werden beim Start geprüft; bei Konflikt wird der nächste freie Port gewählt
 
 #### Web-Dashboard (Port 8099 / Ingress)
 - Echtzeit-Servicestatus aller Komponenten mit tatsächlichen Ports
@@ -97,10 +103,6 @@ Dashboard      →  Port 8099 (Ingress)  →  Status-Übersicht
 - Konfigurationsübersicht und System-Log
 - Bewegungsprotokoll (letzte 50 Ereignisse)
 - Auto-Refresh alle 10 Sekunden
-
-#### Automatische Port-Auswahl
-- Alle Ports werden beim Start geprüft; bei Konflikt wird automatisch der nächste freie Port gewählt
-- Die tatsächlichen Ports werden in `/tmp/actual-ports.json` gespeichert und im Dashboard angezeigt
 
 ### Ports & Dienste
 
@@ -121,6 +123,9 @@ host_interface: eth0          # Netzwerkinterface des Hosts (z. B. eth0, ens3)
 neolink_port: 8554            # Neolink RTSP-Port (Startwert; wird automatisch angepasst wenn belegt)
 go2rtc_port: 18554            # go2rtc RTSP-Port (Startwert; wird automatisch angepasst wenn belegt)
 log_level: info               # Loglevel: error | warn | info | debug
+neolink_rtsp_password: admin  # RTSP-Passwort für Neolink-Verbindungen
+onvif_username: admin         # ONVIF-Benutzername (für UniFi Protect Authentifizierung)
+onvif_password: admin         # ONVIF-Passwort
 
 # MQTT-Broker (optional — Standard: automatisch via HA Supervisor)
 # mqtt_host: "192.168.1.50"  # Manueller Broker-Host (leer lassen für HA-Supervisor-Auto-Discovery)
@@ -131,49 +136,51 @@ cameras:
     address: 192.168.1.100    # IP der echten Reolink-Kamera
     username: admin
     password: mein_passwort
-    # uid: "ABC123"           # Optional: UID für Remote/Relay
-    # channel: 0              # Optional: Kanal für NVR
-    # discovery: local        # Optional: local | remote | map | relay
+    # uid: "ABC123"            # Optional: UID für Remote/Relay-Verbindungen
+    # channel: 0               # Optional: Kanal für NVR (Standard: 0)
+    # discovery: local         # Optional: local | remote | map | relay
 
-    is_battery_camera: false  # Akku-Kamera-Optimierungen aktivieren
-    enable_motion: true       # Bewegungserkennung → MQTT
-    enable_battery: false     # Batteriestand → MQTT
-    enable_preview: false     # Vorschaubilder → MQTT
-
-    ip_mode: static           # dhcp | static
-    onvif_ip: 192.168.1.201   # Virtuelle ONVIF-IP (bei static)
+    ip_mode: static            # dhcp | static
+    onvif_ip: 192.168.1.201    # Virtuelle ONVIF-IP (bei static)
     onvif_mac: "02:00:00:00:01:01"  # Eindeutige virtuelle MAC-Adresse
 
-    stream_high_width: 2560
-    stream_high_height: 1440
+    # Stream-Qualität (optional — Defaults: 1920×1080@15fps/4096kbps, 640×360@7fps/512kbps)
+    stream_high_width: 1920
+    stream_high_height: 1080
     stream_high_fps: 15
     stream_high_bitrate: 4096
-
     stream_low_width: 640
     stream_low_height: 360
     stream_low_fps: 7
     stream_low_bitrate: 512
+
+    # Optionale Einstellungen
+    # has_substream: true          # false für Kameras ohne Sub-Stream (z. B. Akku-Kameras)
+    # continuous_recording: true   # true = 24/7-Aufnahme, false = nur bei Bewegung (Reolink API)
 ```
 
-> **MQTT-Konfiguration:** Standardmäßig wird der MQTT-Broker automatisch über den HA Supervisor erkannt (Mosquitto Add-on). Falls ein externer Broker verwendet wird, können `mqtt_host` und `mqtt_port` gesetzt werden. Bewegungserkennung und Batteriestand werden nur aktiviert, wenn ein Broker verfügbar ist.
+> **continuous_recording:** Beim Add-on-Start wird die Kamera über die Reolink HTTP-API (Port 80) auf den gewünschten Aufnahme-Modus gesetzt. Ist Port 80 durch eine VLAN-Firewall blockiert, erscheint eine Warnung im Log — die Einstellung kann dann manuell in der Reolink App vorgenommen werden (*Recording → Schedule → Continuous*).
 
-### Beispiel-Einrichtung (2 Kameras)
+### Vollständiges Konfigurationsbeispiel (2 Kameras)
 
 ```yaml
 host_interface: eth0
 neolink_port: 8554
 go2rtc_port: 18554
 log_level: info
+neolink_rtsp_password: admin
+onvif_username: admin
+onvif_password: admin
 
 cameras:
   - name: Eingang
     address: 192.168.1.101
     username: admin
     password: geheim123
-    enable_motion: true
     ip_mode: static
     onvif_ip: 192.168.1.201
     onvif_mac: "02:00:00:00:01:01"
+    continuous_recording: true
     stream_high_width: 2560
     stream_high_height: 1440
     stream_high_fps: 15
@@ -187,11 +194,10 @@ cameras:
     address: 192.168.1.102
     username: admin
     password: geheim456
-    enable_motion: true
-    is_battery_camera: true
     ip_mode: static
     onvif_ip: 192.168.1.202
     onvif_mac: "02:00:00:00:01:02"
+    has_substream: false       # Akku-Kamera ohne Sub-Stream
     stream_high_width: 1920
     stream_high_height: 1080
     stream_high_fps: 15
@@ -227,14 +233,14 @@ Für jede Kamera wird eine **virtuelle IP** benötigt, die außerhalb des DHCP-B
 1. UniFi Protect öffnen → **Kameras → Kamera hinzufügen → ONVIF-Gerät**
 2. IP: `onvif_ip` der Kamera (z. B. `192.168.1.201`)
 3. Port: `8001` (erste Kamera), `8002` (zweite Kamera), ...
-4. Benutzername/Passwort: beliebig (virtuelle Geräte benötigen keine Auth)
+4. Benutzername/Passwort: wie in `onvif_username` / `onvif_password` konfiguriert
 5. Kamera wird automatisch als ONVIF-Gerät adoptiert
 
-#### 5. Home Assistant MQTT-Integration prüfen
+#### 5. Home Assistant MQTT-Integration prüfen (optional)
 
 [![MQTT Integration](https://my.home-assistant.io/badges/integration.svg)](https://my.home-assistant.io/redirect/integration/?domain=mqtt)
 
-Bewegungssensoren und Batterie-Entitäten erscheinen automatisch nach dem Start.
+Bewegungssensoren und Batterie-Entitäten erscheinen automatisch nach dem Start, wenn ein MQTT-Broker verfügbar ist.
 
 ---
 
@@ -340,6 +346,37 @@ IPs `.241`, `.242`, `.243` (usw.) müssen außerhalb des DHCP-Bereichs liegen. B
 
 ---
 
+## Häufige Probleme
+
+**MacVLAN-Interface wird nicht erstellt**
+→ Prüfe, ob `host_interface` dem tatsächlichen Interface-Namen entspricht (`ip link show`)
+
+**UniFi Protect findet Kamera nicht**
+→ ONVIF-IP muss im gleichen Subnetz wie der HA-Host und UniFi sein
+
+**RTSP-Stream nicht verfügbar / Schwarzes Bild**
+→ Kamera-IP und Zugangsdaten prüfen. Dashboard öffnen (HA → Add-on → Öffnen) und Neolink/go2rtc-Status prüfen. Logs zeigen ob Kamera verbunden ist.
+
+**Kamera in UniFi Protect erscheint ständig offline**
+→ Kameras die nur bei Bewegung streamen (Akku-Kameras oder Bewegungsgesteuerte Aufnahme) werden von UniFi Protect als offline markiert wenn kein Stream aktiv ist. Lösung: `continuous_recording: true` setzen damit die Kamera dauerhaft streamt.
+
+**Kamera mit 4 MP (z. B. Reolink E1, 2560×1440) wird verzerrt dargestellt**
+→ Stream-Dimensionen in den Add-on-Einstellungen anpassen: `stream_high_width: 2560`, `stream_high_height: 1440`. Ohne korrekte Dimensionen weicht die ONVIF-Ankündigung vom tatsächlichen Stream ab.
+
+**`continuous_recording` funktioniert nicht (Warnung im Log)**
+→ Das Add-on kann die Kamera nicht über Port 80 erreichen (z. B. VLAN-Firewall). Die Einstellung manuell in der Reolink App vornehmen: *Recording → Schedule → Continuous (24/7)*.
+
+**Neolink-Prozess startet häufig neu (Log: "restarting to prevent OOM kill")**
+→ Das ist der integrierte Memory-Watchdog (Neustart bei > 600 MB RAM). Neolink hat einen bekannten Speicherleck; der Watchdog verhindert einen echten OOM-Kill. Das Verhalten ist erwartet und harmlos.
+
+**Bewegungserkennung funktioniert nicht**
+→ Mosquitto Add-on installieren (oder `mqtt_host` setzen) und Add-on neu starten. MQTT-Status im Dashboard prüfen.
+
+**Kamera nach Neustart nicht mehr in UniFi Protect**
+→ UUID-Persistenz ist aktiv — UUIDs werden in `/data/uuids.json` gespeichert. Nur bei vollständigem Datenverlust muss die Kamera neu adoptiert werden.
+
+---
+
 ## Schnelllinks
 
 | Aktion | Link |
@@ -373,30 +410,11 @@ UniFi Protect erwartet, dass jede Kamera eine **eigene IP-Adresse** im Netzwerk 
 
 ---
 
-## Häufige Probleme
-
-**MacVLAN-Interface wird nicht erstellt**
-→ Prüfe, ob `host_interface` dem tatsächlichen Interface-Namen entspricht (`ip link show`)
-
-**UniFi Protect findet Kamera nicht**
-→ ONVIF-IP muss im gleichen Subnetz wie der HA-Host und UniFi sein
-
-**RTSP-Stream nicht verfügbar / Schwarzes Bild**
-→ Kamera-IP und Zugangsdaten prüfen. Dashboard öffnen (HA → Add-on → Öffnen) und Neolink/go2rtc-Status prüfen. Logs zeigen ob Kamera verbunden ist.
-
-**Bewegungserkennung funktioniert nicht**
-→ Mosquitto Add-on installieren (oder `mqtt_host` setzen) und Add-on neu starten. MQTT-Status im Dashboard prüfen.
-
-**Kamera nach Neustart nicht mehr in UniFi Protect**
-→ UUID-Persistenz ist aktiv — UUIDs werden in `/data/uuids.json` gespeichert. Nur bei vollständigem Datenverlust muss die Kamera neu adoptiert werden.
-
----
-
 ## Maintainer
 
 **Kayhartmann** — [GitHub](https://github.com/Kayhartmann)
 
 Basiert auf:
-- [neolink](https://github.com/thirtythreeforty/neolink) — Reolink-Protokoll-Übersetzer
+- [neolink](https://github.com/QuantumEntangledAndy/neolink) — Reolink-Protokoll-Übersetzer
 - [go2rtc](https://github.com/AlexxIT/go2rtc) — RTSP-Proxy
 - [daniela-hase/onvif-server](https://github.com/daniela-hase/onvif-server) — ONVIF-Server
