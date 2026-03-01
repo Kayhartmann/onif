@@ -16,6 +16,8 @@ bashio::log.info "Configuring MQTT broker connection..."
 
 MQTT_HOST_MANUAL=""
 MQTT_PORT_MANUAL=1883
+MQTT_USER_MANUAL=""
+MQTT_PASS_MANUAL=""
 
 # ── Check for manual MQTT configuration ─────────────────────────────────────
 if bashio::config.exists 'mqtt_host'; then
@@ -23,6 +25,12 @@ if bashio::config.exists 'mqtt_host'; then
 fi
 if bashio::config.exists 'mqtt_port'; then
     MQTT_PORT_MANUAL=$(bashio::config 'mqtt_port' || echo "1883")
+fi
+if bashio::config.exists 'mqtt_username'; then
+    MQTT_USER_MANUAL=$(bashio::config 'mqtt_username' || echo "")
+fi
+if bashio::config.exists 'mqtt_password'; then
+    MQTT_PASS_MANUAL=$(bashio::config 'mqtt_password' || echo "")
 fi
 
 if [ -n "${MQTT_HOST_MANUAL}" ]; then
@@ -35,8 +43,8 @@ if [ -n "${MQTT_HOST_MANUAL}" ]; then
   "source": "manual",
   "host": "${MQTT_HOST_MANUAL}",
   "port": ${MQTT_PORT_MANUAL},
-  "username": "",
-  "password": "",
+  "username": "${MQTT_USER_MANUAL}",
+  "password": "${MQTT_PASS_MANUAL}",
   "ssl": false
 }
 EOF
@@ -47,8 +55,8 @@ MQTT_AVAILABLE=true
 MQTT_SOURCE=manual
 MQTT_HOST="${MQTT_HOST_MANUAL}"
 MQTT_PORT="${MQTT_PORT_MANUAL}"
-MQTT_USER=""
-MQTT_PASS=""
+MQTT_USER="${MQTT_USER_MANUAL}"
+MQTT_PASS="${MQTT_PASS_MANUAL}"
 MQTT_SSL=false
 EOF
 
