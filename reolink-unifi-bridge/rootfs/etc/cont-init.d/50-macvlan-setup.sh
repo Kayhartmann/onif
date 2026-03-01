@@ -19,6 +19,13 @@ IP_MAP_FILE="/tmp/camera-ips.json"
 
 bashio::log.info "Setting up MacVLAN interfaces on ${HOST_IFACE}..."
 
+# Clean up ALL existing onvif-* interfaces (including stale ones from previous
+# addon versions that used a different naming scheme, e.g. onvif-cam-1).
+for stale in $(ip link show | grep -oE 'onvif-[^@:]+' || true); do
+    bashio::log.info "  Removing stale interface ${stale}..."
+    ip link del "${stale}" 2>/dev/null || true
+done
+
 # Initialise the IP map JSON
 echo "{}" > "${IP_MAP_FILE}"
 
