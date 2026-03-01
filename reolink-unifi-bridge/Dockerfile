@@ -4,7 +4,7 @@ FROM $BUILD_FROM
 # Build arguments
 ARG BUILD_ARCH
 ARG NEOLINK_VERSION="0.6.1"
-ARG GO2RTC_VERSION="1.9.7"
+ARG GO2RTC_VERSION="1.9.14"
 
 # Install system dependencies.
 # Debian base is required: neolink is a glibc binary (compiled for Debian Bullseye)
@@ -99,4 +99,4 @@ LABEL \
     io.hass.description="Connects Reolink cameras to UniFi Protect via ONVIF" \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
-    io.hass.version="1.0.19"
+    io.hass.version="1.0.20"

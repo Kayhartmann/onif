@@ -16,8 +16,8 @@ CONFIG_FILE="/data/go2rtc/go2rtc.yaml"
 mkdir -p /data/go2rtc
 
 # Build streams section
-# go2rtc connects directly to cameras via Reolink protocol (bypasses neolink RTSP server).
-# This avoids the neolink 0.6.x GStreamer RTSP server binding bug.
+# go2rtc connects directly to cameras via native RTSP (rtsp://ip:554/h264Preview_01_main).
+# Note: reolink:// scheme is NOT supported in any official go2rtc release.
 # For cameras with no direct address (UID-only), fall back to neolink RTSP.
 STREAMS_YAML=""
 CAMERA_COUNT=$(bashio::config 'cameras | length')
@@ -34,10 +34,10 @@ if bashio::config.exists 'cameras'; then
         fi
 
         if [ -n "${CAM_ADDRESS}" ]; then
-            bashio::log.info "  Adding go2rtc stream (reolink://): ${CAM_NAME} @ ${CAM_ADDRESS}"
+            bashio::log.info "  Adding go2rtc stream (rtsp): ${CAM_NAME} @ ${CAM_ADDRESS}"
             STREAMS_YAML="${STREAMS_YAML}
-  ${CAM_NAME}: reolink://${CAM_USERNAME}:${CAM_PASSWORD}@${CAM_ADDRESS}
-  ${CAM_NAME}_sub: reolink://${CAM_USERNAME}:${CAM_PASSWORD}@${CAM_ADDRESS}?channel=0&subtype=1"
+  ${CAM_NAME}: rtsp://${CAM_USERNAME}:${CAM_PASSWORD}@${CAM_ADDRESS}:554/h264Preview_01_main
+  ${CAM_NAME}_sub: rtsp://${CAM_USERNAME}:${CAM_PASSWORD}@${CAM_ADDRESS}:554/h264Preview_01_sub"
         else
             # UID-only camera — fall back to neolink RTSP
             bashio::log.info "  Adding go2rtc stream (neolink rtsp, UID-only): ${CAM_NAME}"
