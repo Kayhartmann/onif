@@ -12,6 +12,9 @@ wait-for-port 127.0.0.1 "${NEOLINK_PORT}" 60 || {
 
 CONFIG_FILE="/data/go2rtc/go2rtc.yaml"
 
+# Kill any stale go2rtc from a previous run (host_network: port stays bound after restart)
+pkill -x go2rtc 2>/dev/null && sleep 1 || true
+
 bashio::log.info "Starting go2rtc..."
 
 exec go2rtc \

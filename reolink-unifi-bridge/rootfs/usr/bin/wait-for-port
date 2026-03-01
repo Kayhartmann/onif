@@ -1,13 +1,14 @@
 #!/bin/bash
 # wait-for-port HOST PORT [TIMEOUT_SECONDS]
 # Waits until a TCP port is open. Returns 0 on success, 1 on timeout.
+# Uses bash built-in /dev/tcp instead of nc for reliability.
 
 HOST="${1:?Usage: wait-for-port HOST PORT [TIMEOUT]}"
 PORT="${2:?Usage: wait-for-port HOST PORT [TIMEOUT]}"
 TIMEOUT="${3:-30}"
 
 for i in $(seq 1 "${TIMEOUT}"); do
-    if nc -z "${HOST}" "${PORT}" 2>/dev/null; then
+    if (echo >/dev/tcp/"${HOST}"/"${PORT}") 2>/dev/null; then
         exit 0
     fi
     sleep 1

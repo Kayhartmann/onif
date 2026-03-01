@@ -18,8 +18,17 @@ function formatDateTime (iso) {
 
 async function fetchJSON (url) {
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${url}`);
   return res.json();
+}
+
+// ─── Base URL for HA Ingress compatibility ─────────────────────────────────────
+// fetch('/api/...') would resolve to the HA host root (wrong).
+// fetch('api/...')  resolves relative to the ingress page URL (correct).
+function apiUrl (path) {
+  // Ensure trailing slash on base, then append path without leading slash
+  const base = window.location.pathname.replace(/\/?$/, '/');
+  return base + path;
 }
 
 function copyToClipboard (text, btn) {
@@ -197,7 +206,7 @@ function renderCameraCard (cam) {
                     <span class="camera-meta-label">ONVIF IP</span>
                     <span class="camera-meta-value">${onvifIpDisplay}</span>
                 </div>
-                ${cam.is_battery_camera
+                ${cam.is_battery
 ? `
                 <div class="camera-meta-row">
                     <span class="camera-meta-label">Battery</span>
@@ -262,7 +271,7 @@ function renderStreamGroup (stream) {
 // ─── Update functions ─────────────────────────────────────────────────────────
 async function updateStatus () {
   try {
-    const data = await fetchJSON('/api/status');
+    const data = await fetchJSON(apiUrl('api/status'));
     const s = data.services;
     renderServiceChip('mqtt', 'MQTT', s.mqtt.running);
     renderServiceChip('neolink', 'Neolink', s.neolink.running, s.neolink.port);
@@ -277,7 +286,7 @@ async function updateStatus () {
 
 async function updateCameras () {
   try {
-    const cameras = await fetchJSON('/api/cameras');
+    const cameras = await fetchJSON(apiUrl('api/cameras'));
     const grid = qs('#cameras-grid');
     if (cameras.length === 0) {
       grid.innerHTML = '<div class="empty-state">No cameras configured. Add cameras in the add-on settings.</div>';
@@ -285,13 +294,13 @@ async function updateCameras () {
     }
     grid.innerHTML = cameras.map(renderCameraCard).join('');
   } catch (err) {
-    qs('#cameras-grid').innerHTML = `<div class="empty-state">Error loading cameras: ${escapeHtml(err.message)}</div>`;
+    if (qs('#cameras-grid')) qs('#cameras-grid').innerHTML = `<div class="empty-state">Error loading cameras: ${escapeHtml(err.message)}</div>`;
   }
 }
 
 async function updateMotion () {
   try {
-    const events = await fetchJSON('/api/motion');
+    const events = await fetchJSON(apiUrl('api/motion'));
     const log = qs('#motion-log');
     const count = qs('#motion-count');
     if (count) count.textContent = events.length;
@@ -307,7 +316,7 @@ async function updateMotion () {
 
 async function updateStreams () {
   try {
-    const streams = await fetchJSON('/api/streams');
+    const streams = await fetchJSON(apiUrl('api/streams'));
     const list = qs('#streams-list');
     if (streams.length === 0) {
       list.innerHTML = '<div class="empty-state">No cameras configured.</div>';
@@ -321,7 +330,7 @@ async function updateStreams () {
 
 async function updateConfig () {
   try {
-    const cfg = await fetchJSON('/api/config');
+    const cfg = await fetchJSON(apiUrl('api/config'));
     const grid = qs('#config-grid');
     if (!grid) return;
 
@@ -367,7 +376,7 @@ async function updateConfig () {
 
 async function updateLogs () {
   try {
-    const logs = await fetchJSON('/api/logs?limit=50');
+    const logs = await fetchJSON(apiUrl('api/logs') + '?limit=50');
     const panel = qs('#log-panel');
     const count = qs('#log-count');
     if (!panel) return;
