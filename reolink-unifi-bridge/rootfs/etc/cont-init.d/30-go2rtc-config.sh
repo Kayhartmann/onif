@@ -40,9 +40,11 @@ if bashio::config.exists 'cameras'; then
         fi
 
         bashio::log.info "  Adding go2rtc stream: ${CAM_NAME}"
+        # #backchannel=0 prevents go2rtc from forwarding UniFi's backchannel request
+        # to neolink. Without it neolink rejects with 551 → connection reset every ~5s.
         STREAMS_YAML="${STREAMS_YAML}
-  ${CAM_NAME}: rtsp://127.0.0.1:${NEOLINK_PORT}/${CAM_NAME}/main
-  ${CAM_NAME}_sub: rtsp://127.0.0.1:${NEOLINK_PORT}/${SUB_PATH}"
+  ${CAM_NAME}: rtsp://127.0.0.1:${NEOLINK_PORT}/${CAM_NAME}/main#backchannel=0
+  ${CAM_NAME}_sub: rtsp://127.0.0.1:${NEOLINK_PORT}/${SUB_PATH}#backchannel=0"
     done
 fi
 
