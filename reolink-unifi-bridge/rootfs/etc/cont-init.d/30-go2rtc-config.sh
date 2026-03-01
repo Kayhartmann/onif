@@ -16,35 +16,19 @@ CONFIG_FILE="/data/go2rtc/go2rtc.yaml"
 mkdir -p /data/go2rtc
 
 # Build streams section
-# go2rtc connects directly to cameras via native RTSP (rtsp://ip:554/h264Preview_01_main).
-# Note: reolink:// scheme is NOT supported in any official go2rtc release.
-# For cameras with no direct address (UID-only), fall back to neolink RTSP.
+# All cameras are routed through Neolink (Baichuan protocol on port 9000 to camera).
+# Neolink exposes an RTSP server which go2rtc consumes.
 STREAMS_YAML=""
 CAMERA_COUNT=$(bashio::config 'cameras | length')
 
 if bashio::config.exists 'cameras'; then
     for i in $(seq 0 $((CAMERA_COUNT - 1))); do
         CAM_NAME=$(bashio::config "cameras[${i}].name")
-        CAM_USERNAME=$(bashio::config "cameras[${i}].username")
-        CAM_PASSWORD=$(bashio::config "cameras[${i}].password")
 
-        CAM_ADDRESS=""
-        if bashio::config.exists "cameras[${i}].address"; then
-            CAM_ADDRESS=$(bashio::config "cameras[${i}].address")
-        fi
-
-        if [ -n "${CAM_ADDRESS}" ]; then
-            bashio::log.info "  Adding go2rtc stream (rtsp): ${CAM_NAME} @ ${CAM_ADDRESS}"
-            STREAMS_YAML="${STREAMS_YAML}
-  ${CAM_NAME}: rtsp://${CAM_USERNAME}:${CAM_PASSWORD}@${CAM_ADDRESS}:554/h264Preview_01_main
-  ${CAM_NAME}_sub: rtsp://${CAM_USERNAME}:${CAM_PASSWORD}@${CAM_ADDRESS}:554/h264Preview_01_sub"
-        else
-            # UID-only camera — fall back to neolink RTSP
-            bashio::log.info "  Adding go2rtc stream (neolink rtsp, UID-only): ${CAM_NAME}"
-            STREAMS_YAML="${STREAMS_YAML}
+        bashio::log.info "  Adding go2rtc stream (neolink rtsp): ${CAM_NAME}"
+        STREAMS_YAML="${STREAMS_YAML}
   ${CAM_NAME}: rtsp://127.0.0.1:${NEOLINK_PORT}/${CAM_NAME}/main
   ${CAM_NAME}_sub: rtsp://127.0.0.1:${NEOLINK_PORT}/${CAM_NAME}/sub"
-        fi
     done
 fi
 
